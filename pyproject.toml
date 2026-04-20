@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "syncalpy"
+version = "0.1.0"
+description = "Calendar synchronization tool"
+readme = "README.md"
+license = {text = "CeCILL-C"}
+authors = [
+    {name = "Syncalpy Contributors"}
+]
+requires-python = ">=3.8"
+dependencies = [
+    "pyyaml>=6.0",
+    "python-dateutil>=2.8.0",
+    "icalendar>=5.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pylint>=3.0",
+]
+
+[project.scripts]
+syncalpy = "syncalpy.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.pylint.format]
+max-line-length = 100
