@@ -42,6 +42,9 @@ htmlcov/
 .tox/
 .nox/
 
+# mkdocs
+site/
+
 # mypy
 .mypy_cache/
 .dmypy.json
