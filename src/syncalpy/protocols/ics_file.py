@@ -1,46 +1,68 @@
-"""ICS file protocol for local calendar files."""
+"""ICS file protocol for local calendar files and HTTP URLs."""
 
 import os
 import re
 from typing import Optional
 
+import requests
 from dateutil import parser as date_parser
 from ..calendar import Calendar
 from ..event import CalendarEvent
 
 
 class ICSFileProtocol:
-    """Protocol for reading/writing local ICS files."""
+    """Protocol for reading/writing ICS files from local path or HTTP URL."""
 
     def __init__(self, url: str, username: str = "", password: str = ""):
         """Initialize ICS file protocol.
 
         Args:
-            url: Path to the ICS file
+            url: Path to the ICS file or HTTP/HTTPS URL
             username: Not used (for compatibility)
             password: Not used (for compatibility)
         """
-        self.path = url
+        self.url = url
         self.username = username
         self.password = password
+        self._is_http = url.startswith("http://") or url.startswith("https://")
 
     def fetch(self) -> Calendar:
-        """Fetch calendar from ICS file."""
-        if not os.path.exists(self.path):
-            return Calendar(name=os.path.basename(self.path), protocol="ics_file")
+        """Fetch calendar from ICS file or HTTP URL."""
+        if self._is_http:
+            return self._fetch_http()
+        else:
+            return self._fetch_local()
 
-        with open(self.path, "r", encoding="utf-8") as f:
+    def _fetch_local(self) -> Calendar:
+        """Fetch calendar from local file."""
+        if not os.path.exists(self.url):
+            raise FileNotFoundError(f"ICS file not found: {self.url}")
+
+        with open(self.url, "r", encoding="utf-8") as f:
             content = f.read()
 
         return self._parse_ics(content)
 
+    def _fetch_http(self) -> Calendar:
+        """Fetch calendar from HTTP URL."""
+        try:
+            response = requests.get(self.url, timeout=30)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Failed to fetch ICS from {self.url}: {e}")
+
+        return self._parse_ics(response.text)
+
     def push(self, calendar: Calendar) -> None:
         """Push calendar to ICS file."""
+        if self._is_http:
+            raise NotImplementedError("Push to HTTP URL is not supported")
+
         ics_content = self._build_ics(calendar)
 
-        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
+        os.makedirs(os.path.dirname(self.url) or ".", exist_ok=True)
 
-        with open(self.path, "w", encoding="utf-8") as f:
+        with open(self.url, "w", encoding="utf-8") as f:
             f.write(ics_content)
 
     def _parse_ics(self, content: str) -> Calendar:
