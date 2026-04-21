@@ -88,8 +88,11 @@ def create_protocol(calendar: Calendar):
 
 
 def apply_filters(calendar: Calendar) -> Calendar:
-    """Apply filters to calendar events."""
-    events = calendar.events
+    """Apply filters to calendar events on a copy."""
+    from copy import copy
+    filtered_calendar = copy(calendar)
+    filtered_calendar.events = list(calendar.events)
+    events = filtered_calendar.events
     for filter_config in calendar.filters:
         if isinstance(filter_config, dict):
             filter_name = filter_config.get("name")
@@ -100,5 +103,5 @@ def apply_filters(calendar: Calendar) -> Calendar:
             filter_obj = get_filter(filter_config)
             events = filter_obj.filter(events)
 
-    calendar.events = events
-    return calendar
+    filtered_calendar.events = events
+    return filtered_calendar

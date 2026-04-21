@@ -64,6 +64,8 @@ def synchronize_calendars(
     prev_cal2: Calendar,
     curr_cal1: Calendar,
     curr_cal2: Calendar,
+    raw_cal1: Calendar = None,
+    raw_cal2: Calendar = None,
 ) -> Tuple[Calendar, Calendar]:
     """Synchronize two calendars bidirectionally.
 
@@ -73,8 +75,10 @@ def synchronize_calendars(
     Args:
         prev_cal1: Previous state of calendar 1
         prev_cal2: Previous state of calendar 2
-        curr_cal1: Current state of calendar 1
-        curr_cal2: Current state of calendar 2
+        curr_cal1: Current state of calendar 1 (filtered, used for sync)
+        curr_cal2: Current state of calendar 2 (filtered, used for sync)
+        raw_cal1: Raw calendar 1 (unfiltered, for preserving events)
+        raw_cal2: Raw calendar 2 (unfiltered, for preserving events)
 
     Returns:
         Tuple of updated calendars
@@ -82,15 +86,24 @@ def synchronize_calendars(
     diff_1 = curr_cal1.diff(prev_cal1)
     diff_2 = curr_cal2.diff(prev_cal2)
 
+    if raw_cal1:
+        base_events1 = list(raw_cal1.events)
+    else:
+        base_events1 = list(curr_cal1.events)
+    if raw_cal2:
+        base_events2 = list(raw_cal2.events)
+    else:
+        base_events2 = list(curr_cal2.events)
+
     updated_cal1 = Calendar(
         name=curr_cal1.name,
-        events=list(curr_cal1.events),
+        events=base_events1,
         url=curr_cal1.url,
         protocol=curr_cal1.protocol,
     )
     updated_cal2 = Calendar(
         name=curr_cal2.name,
-        events=list(curr_cal2.events),
+        events=base_events2,
         url=curr_cal2.url,
         protocol=curr_cal2.protocol,
     )
@@ -215,18 +228,21 @@ def run_synchronization(sync_config: Dict[str, Any], config: Config) -> None:
     protocol2 = create_protocol(cal2)
 
     print(f"Fetching {cal1_name}...")
-    curr_cal1 = protocol1.fetch()
-    curr_cal1.name = cal1_name
-    curr_cal1.url = cal1.url
-    curr_cal1.protocol = cal1.protocol
-    curr_cal1 = apply_filters(curr_cal1)
+    raw_cal1 = protocol1.fetch()
+    raw_cal1.name = cal1_name
+    raw_cal1.url = cal1.url
+    raw_cal1.protocol = cal1.protocol
+    raw_cal1.filters = cal1.filters
 
     print(f"Fetching {cal2_name}...")
-    curr_cal2 = protocol2.fetch()
-    curr_cal2.name = cal2_name
-    curr_cal2.url = cal2.url
-    curr_cal2.protocol = cal2.protocol
-    curr_cal2 = apply_filters(curr_cal2)
+    raw_cal2 = protocol2.fetch()
+    raw_cal2.name = cal2_name
+    raw_cal2.url = cal2.url
+    raw_cal2.protocol = cal2.protocol
+    raw_cal2.filters = cal2.filters
+
+    curr_cal1 = apply_filters(raw_cal1)
+    curr_cal2 = apply_filters(raw_cal2)
 
     print(f"Loading previous state for {cal1_name}...")
     prev_cal1 = load_state(state_dir, cal1_name)
@@ -236,12 +252,12 @@ def run_synchronization(sync_config: Dict[str, Any], config: Config) -> None:
 
     print(f"Synchronizing {cal1_name} <-> {cal2_name}...")
     updated_cal1, updated_cal2 = synchronize_calendars(
-        prev_cal1, prev_cal2, curr_cal1, curr_cal2
+        prev_cal1, prev_cal2, curr_cal1, curr_cal2, raw_cal1, raw_cal2
     )
 
     print(f"Pushing changes to {cal1_name}...")
-    updated_cal1.url = curr_cal1.url
-    updated_cal1.protocol = curr_cal1.protocol
+    updated_cal1.url = raw_cal1.url
+    updated_cal1.protocol = raw_cal1.protocol
     try:
         protocol1_push = create_protocol(updated_cal1)
         protocol1_push.push(updated_cal1)
@@ -249,8 +265,8 @@ def run_synchronization(sync_config: Dict[str, Any], config: Config) -> None:
         print(f"Warning: Failed to push to {cal1_name}: {e}")
 
     print(f"Pushing changes to {cal2_name}...")
-    updated_cal2.url = curr_cal2.url
-    updated_cal2.protocol = curr_cal2.protocol
+    updated_cal2.url = raw_cal2.url
+    updated_cal2.protocol = raw_cal2.protocol
     try:
         protocol2_push = create_protocol(updated_cal2)
         protocol2_push.push(updated_cal2)
