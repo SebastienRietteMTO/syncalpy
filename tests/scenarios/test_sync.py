@@ -315,8 +315,8 @@ class TestSyncWithFilters:
         assert updated2.get_event_by_uid("2") is not None
 
     def test_sync_with_regexp_filter(self):
-        """Sync respects regexp filter."""
-        from syncalpy.filters.regexp import RegexpFilter
+        """Sync respects regexp_summary filter."""
+        from syncalpy.filters.regexp import RegexpSummaryFilter
 
         meeting = create_event("1", "Team Meeting", 1)
         lunch = create_event("2", "Lunch", 1)
@@ -327,7 +327,7 @@ class TestSyncWithFilters:
         curr_cal1 = Calendar(name="cal1", events=[meeting, lunch])
         curr_cal2 = Calendar(name="cal2", events=[])
 
-        filter_obj = RegexpFilter(pattern="meeting")
+        filter_obj = RegexpSummaryFilter(pattern="meeting")
         curr_cal1.events = filter_obj.filter(curr_cal1.events)
 
         updated1, updated2 = synchronize_calendars(
@@ -340,7 +340,7 @@ class TestSyncWithFilters:
 
     def test_sync_with_filter_and_full_cal1(self):
         """Filter is applied to source, but unsynced events stay in cal1."""
-        from syncalpy.filters.regexp import RegexpFilter
+        from syncalpy.filters.regexp import RegexpSummaryFilter
 
         event1 = CalendarEvent(uid="1", summary="[WORK] Meeting", start=datetime(2026, 4, 21, 14), end=datetime(2026, 4, 21, 15))
         event2 = CalendarEvent(uid="2", summary="[PRIVATE] Lunch", start=datetime(2026, 4, 22, 12), end=datetime(2026, 4, 22, 13))
@@ -349,7 +349,7 @@ class TestSyncWithFilters:
         prev_cal2 = Calendar(name="cal2", events=[])
 
         cal1 = Calendar(name="cal1", events=[event1, event2])
-        filter_obj = RegexpFilter(pattern=r"^\[WORK\]")
+        filter_obj = RegexpSummaryFilter(pattern=r"^\[WORK\]")
         cal1.events = filter_obj.filter(cal1.events)
 
         updated1, updated2 = synchronize_calendars(

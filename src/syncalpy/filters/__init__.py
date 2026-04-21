@@ -1,11 +1,13 @@
 """Filter module."""
 
 from .future_only import FutureOnlyFilter
-from .regexp import RegexpFilter
+from .regexp import RegexpSummaryFilter, RegexpDescriptionFilter, RegexpLocationFilter
 
 FILTER_REGISTRY = {
     "future_only": FutureOnlyFilter,
-    "regexp": RegexpFilter,
+    "regexp_summary": RegexpSummaryFilter,
+    "regexp_description": RegexpDescriptionFilter,
+    "regexp_location": RegexpLocationFilter,
 }
 
 
@@ -17,4 +19,4 @@ def get_filter(filter_name: str, **params):
     return filter_class(**params)
 
 
-__all__ = ["FutureOnlyFilter", "RegexpFilter", "get_filter", "FILTER_REGISTRY"]
+__all__ = ["FutureOnlyFilter", "RegexpSummaryFilter", "RegexpDescriptionFilter", "RegexpLocationFilter", "get_filter", "FILTER_REGISTRY"]

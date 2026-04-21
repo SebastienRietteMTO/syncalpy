@@ -49,7 +49,7 @@ synchronizations:
       password: "password"
       filters:
         - name: "future_only"
-        - name: "regexp"
+        - name: "regexp_summary"
           pattern: "work|meeting"
     calendar2:
       name: "home"

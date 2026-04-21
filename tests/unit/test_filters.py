@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime, timedelta
 from syncalpy.event import CalendarEvent
 from syncalpy.filters.future_only import FutureOnlyFilter
-from syncalpy.filters.regexp import RegexpFilter
+from syncalpy.filters.regexp import RegexpSummaryFilter, RegexpDescriptionFilter, RegexpLocationFilter
 
 
 def make_event(uid, summary, days_from_now=0):
@@ -55,46 +55,21 @@ class TestFutureOnlyFilter:
         assert len(result) == 0
 
 
-class TestRegexpFilter:
-    """Tests for RegexpFilter."""
+class TestRegexpSummaryFilter:
+    """Tests for RegexpSummaryFilter."""
 
-    def test_filter_by_title(self):
-        """Filter by title field."""
+    def test_filter_by_summary(self):
+        """Filter by summary field."""
         events = [
             make_event("1", "Meeting with team", 1),
             make_event("2", "Lunch with friend", 1),
         ]
 
-        filter_obj = RegexpFilter(pattern="meeting", field="title")
+        filter_obj = RegexpSummaryFilter(pattern="meeting")
         result = filter_obj.filter(events)
 
         assert len(result) == 1
         assert result[0].uid == "1"
-
-    def test_filter_by_description(self):
-        """Filter by description field."""
-        events = [
-            CalendarEvent(uid="1", summary="Event 1", description="Important meeting", start=datetime.now()),
-            CalendarEvent(uid="2", summary="Event 2", description="Casual lunch", start=datetime.now()),
-        ]
-
-        filter_obj = RegexpFilter(pattern="meeting", field="description")
-        result = filter_obj.filter(events)
-
-        assert len(result) == 1
-        assert result[0].uid == "1"
-
-    def test_filter_any_field(self):
-        """Filter by any field."""
-        events = [
-            CalendarEvent(uid="1", summary="Meeting", description="Discuss team", start=datetime.now()),
-            CalendarEvent(uid="2", summary="Lunch", description="With team", start=datetime.now()),
-        ]
-
-        filter_obj = RegexpFilter(pattern="team", field="any")
-        result = filter_obj.filter(events)
-
-        assert len(result) == 2
 
     def test_filter_no_match(self):
         """Return empty when no match."""
@@ -102,7 +77,7 @@ class TestRegexpFilter:
             make_event("1", "Meeting", 1),
         ]
 
-        filter_obj = RegexpFilter(pattern="lunch")
+        filter_obj = RegexpSummaryFilter(pattern="lunch")
         result = filter_obj.filter(events)
 
         assert len(result) == 0
@@ -114,7 +89,41 @@ class TestRegexpFilter:
             make_event("2", "meeting", 1),
         ]
 
-        filter_obj = RegexpFilter(pattern="meeting")
+        filter_obj = RegexpSummaryFilter(pattern="meeting")
         result = filter_obj.filter(events)
 
         assert len(result) == 2
+
+
+class TestRegexpDescriptionFilter:
+    """Tests for RegexpDescriptionFilter."""
+
+    def test_filter_by_description(self):
+        """Filter by description field."""
+        events = [
+            CalendarEvent(uid="1", summary="Event 1", description="Important meeting", start=datetime.now()),
+            CalendarEvent(uid="2", summary="Event 2", description="Casual lunch", start=datetime.now()),
+        ]
+
+        filter_obj = RegexpDescriptionFilter(pattern="meeting")
+        result = filter_obj.filter(events)
+
+        assert len(result) == 1
+        assert result[0].uid == "1"
+
+
+class TestRegexpLocationFilter:
+    """Tests for RegexpLocationFilter."""
+
+    def test_filter_by_location(self):
+        """Filter by location field."""
+        events = [
+            CalendarEvent(uid="1", summary="Event 1", location="Conference Room A", start=datetime.now()),
+            CalendarEvent(uid="2", summary="Event 2", location="Cafeteria", start=datetime.now()),
+        ]
+
+        filter_obj = RegexpLocationFilter(pattern="conference")
+        result = filter_obj.filter(events)
+
+        assert len(result) == 1
+        assert result[0].uid == "1"
