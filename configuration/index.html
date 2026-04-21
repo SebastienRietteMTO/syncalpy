@@ -322,6 +322,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sync-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#filters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -345,10 +356,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#regexp" class="md-nav__link">
+  <a href="#regexp-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Regexp
+        Regexp Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regexp-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regexp Description
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regexp-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regexp Location
       
     </span>
   </a>
@@ -433,6 +466,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sync-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#filters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -456,10 +500,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#regexp" class="md-nav__link">
+  <a href="#regexp-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Regexp
+        Regexp Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regexp-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regexp Description
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regexp-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regexp Location
       
     </span>
   </a>
@@ -495,6 +561,7 @@
 <p>Create a configuration file at <code>~/.syncalpy/config.yaml</code>:</p>
 <pre><code class="language-yaml">synchronizations:
   - name: &quot;my-sync&quot;
+    sync_mode: &quot;bidirectional&quot;  # bidirectional, cal1_to_cal2, cal2_to_cal1
     calendar1:
       name: &quot;work&quot;
       protocol: &quot;caldav&quot;
@@ -503,7 +570,7 @@
       password: &quot;password&quot;
       filters:
         - name: &quot;future_only&quot;
-        - name: &quot;regexp&quot;
+        - name: &quot;regexp_summary&quot;
           pattern: &quot;work|meeting&quot;
     calendar2:
       name: &quot;home&quot;
@@ -521,16 +588,31 @@
 <li><code>password</code>: Password (for CalDAV/Zimbra)</li>
 <li><code>filters</code>: List of filters to apply</li>
 </ul>
+<h2 id="sync-mode">Sync Mode</h2>
+<ul>
+<li><code>bidirectional</code>: Sync events in both directions (default)</li>
+<li><code>cal1_to_cal2</code>: Only sync from calendar1 to calendar2</li>
+<li><code>cal2_to_cal1</code>: Only sync from calendar2 to calendar1</li>
+</ul>
 <h2 id="filters">Filters</h2>
 <h3 id="future-only">Future Only</h3>
 <pre><code class="language-yaml">filters:
   - name: &quot;future_only&quot;
 </code></pre>
-<h3 id="regexp">Regexp</h3>
+<h3 id="regexp-summary">Regexp Summary</h3>
 <pre><code class="language-yaml">filters:
-  - name: &quot;regexp&quot;
+  - name: &quot;regexp_summary&quot;
     pattern: &quot;work|meeting&quot;
-    field: &quot;title&quot;  # optional: title, description, any
+</code></pre>
+<h3 id="regexp-description">Regexp Description</h3>
+<pre><code class="language-yaml">filters:
+  - name: &quot;regexp_description&quot;
+    pattern: &quot;important|urgent&quot;
+</code></pre>
+<h3 id="regexp-location">Regexp Location</h3>
+<pre><code class="language-yaml">filters:
+  - name: &quot;regexp_location&quot;
+    pattern: &quot;conference|room&quot;
 </code></pre>
 
 
