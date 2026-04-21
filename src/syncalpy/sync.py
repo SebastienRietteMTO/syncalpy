@@ -216,11 +216,15 @@ def run_synchronization(sync_config: Dict[str, Any], config: Config) -> None:
     print(f"Fetching {cal1_name}...")
     curr_cal1 = protocol1.fetch()
     curr_cal1.name = cal1_name
+    curr_cal1.url = cal1.url
+    curr_cal1.protocol = cal1.protocol
     curr_cal1 = apply_filters(curr_cal1)
 
     print(f"Fetching {cal2_name}...")
     curr_cal2 = protocol2.fetch()
     curr_cal2.name = cal2_name
+    curr_cal2.url = cal2.url
+    curr_cal2.protocol = cal2.protocol
     curr_cal2 = apply_filters(curr_cal2)
 
     print(f"Loading previous state for {cal1_name}...")

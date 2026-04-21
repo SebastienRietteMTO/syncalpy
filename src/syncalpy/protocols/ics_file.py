@@ -12,15 +12,15 @@ from ..event import CalendarEvent
 class ICSFileProtocol:
     """Protocol for reading/writing local ICS files."""
 
-    def __init__(self, path: str, username: str = "", password: str = ""):
+    def __init__(self, url: str, username: str = "", password: str = ""):
         """Initialize ICS file protocol.
 
         Args:
-            path: Path to the ICS file
+            url: Path to the ICS file
             username: Not used (for compatibility)
             password: Not used (for compatibility)
         """
-        self.path = path
+        self.path = url
         self.username = username
         self.password = password
 

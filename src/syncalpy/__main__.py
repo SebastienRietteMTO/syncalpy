@@ -20,7 +20,7 @@ def main():
     sync_parser.add_argument(
         "--config",
         "-c",
-        help="Path to config file",
+        help="Path to config directory (defaults to ~/.syncalpy)",
         default=None,
     )
 
@@ -28,7 +28,7 @@ def main():
     list_parser.add_argument(
         "--config",
         "-c",
-        help="Path to config file",
+        help="Path to config directory (defaults to ~/.syncalpy)",
         default=None,
     )
 
@@ -36,7 +36,7 @@ def main():
     status_parser.add_argument(
         "--config",
         "-c",
-        help="Path to config file",
+        help="Path to config directory (defaults to ~/.syncalpy)",
         default=None,
     )
 

@@ -10,22 +10,21 @@ from .protocols import get_protocol
 
 
 DEFAULT_CONFIG_DIR = Path.home() / ".syncalpy"
-DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.yaml"
 DEFAULT_STATE_DIR = DEFAULT_CONFIG_DIR / "state"
 
 
 class Config:
     """Configuration manager."""
 
-    def __init__(self, config_file: str = None):
+    def __init__(self, config_dir: str = None):
         """Initialize configuration.
 
         Args:
-            config_file: Path to config file. Defaults to ~/.syncalpy/config.yaml
+            config_dir: Path to config directory. Defaults to ~/.syncalpy
         """
-        self.config_file = Path(config_file) if config_file else DEFAULT_CONFIG_FILE
-        self.config_dir = self.config_file.parent
-        self.state_dir = DEFAULT_STATE_DIR
+        config_path = Path(config_dir) if config_dir else DEFAULT_CONFIG_DIR
+        self.config_file = config_path / "config.yaml"
+        self.state_dir = config_path / "state"
         self._config: Dict[str, Any] = {}
         self._load()
 
