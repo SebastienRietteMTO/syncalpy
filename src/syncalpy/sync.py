@@ -49,6 +49,7 @@ def save_state(state_dir: Path, calendar: Calendar) -> None:
             "start": event.start.isoformat() if event.start else None,
             "end": event.end.isoformat() if event.end else None,
             "description": event.description,
+            "location": event.location,
             "source": event.source,
         })
 
@@ -257,9 +258,9 @@ def run_synchronization(sync_config: Dict[str, Any], config: Config) -> None:
         print(f"Warning: Failed to push to {cal2_name}: {e}")
 
     print(f"Saving state for {cal1_name}...")
-    save_state(state_dir, curr_cal1)
+    save_state(state_dir, updated_cal1)
 
     print(f"Saving state for {cal2_name}...")
-    save_state(state_dir, curr_cal2)
+    save_state(state_dir, updated_cal2)
 
     print("Synchronization complete.")

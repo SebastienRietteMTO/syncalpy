@@ -10,7 +10,6 @@ from .protocols import get_protocol
 
 
 DEFAULT_CONFIG_DIR = Path.home() / ".syncalpy"
-DEFAULT_STATE_DIR = DEFAULT_CONFIG_DIR / "state"
 
 
 class Config:
@@ -20,9 +19,13 @@ class Config:
         """Initialize configuration.
 
         Args:
-            config_dir: Path to config directory. Defaults to ~/.syncalpy
+            config_dir: Path to config directory containing config.yaml and state/.
+                        Defaults to ~/.syncalpy
         """
-        config_path = Path(config_dir) if config_dir else DEFAULT_CONFIG_DIR
+        if config_dir:
+            config_path = Path(config_dir)
+        else:
+            config_path = DEFAULT_CONFIG_DIR
         self.config_file = config_path / "config.yaml"
         self.state_dir = config_path / "state"
         self._config: Dict[str, Any] = {}
