@@ -304,6 +304,35 @@ class TestSyncConflictResolution:
         assert len(updated2.events) == 2
         assert updated1 == updated2
 
+    def test_conflict_modify_separate_fields(self):
+        """Conflict: modify different fields on each side - merge into single event."""
+        base_event = create_event("1", "Base", 1, description="")
+        prev_cal = Calendar(events=[base_event])
+
+        event1 = CalendarEvent(
+            uid="1", summary="New Summary",
+            start=base_event.start, end=base_event.end,
+            description=""
+        )
+        event2 = CalendarEvent(
+            uid="1", summary="Base",
+            start=base_event.start, end=base_event.end,
+            description="", location="Office"
+        )
+        curr_cal1 = Calendar(events=[event1])
+        curr_cal2 = Calendar(events=[event2])
+
+        updated1, updated2 = synchronize_calendars(
+            prev_cal, curr_cal1, curr_cal2
+        )
+
+        assert len(updated1.events) == 1
+        assert len(updated2.events) == 1
+        assert updated1 == updated2
+        merged = updated1.events[0]
+        assert merged.summary == "New Summary"
+        assert merged.location == "Office"
+
 
 class TestSyncWithFilters:
     """Test synchronization with filters."""

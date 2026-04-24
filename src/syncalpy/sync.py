@@ -150,16 +150,13 @@ class Synchronization:
             else:
                 # Modified in both versions
                 # There is a conflict, we push both versions in cal1 and cal2
+                e = ref.get_event_by_uid(uid)
                 e1 = cal1.get_event_by_uid(uid)
                 e2 = cal2.get_event_by_uid(uid)
-                if e1 != e2:
-                    # Added or modified on both sides, differently
-                    e2.set_uid() # Change uid for one version
-                    for event in (e1, e2):
-                        event.conflict()
-                        cal1.add_event(event)
-                        cal2.add_event(event)
-                        ref.add_event(event)
+                for event in Synchronization._conflict(e, e1, e2):
+                    cal1.add_event(event)
+                    cal2.add_event(event)
+                    ref.add_event(event)
                 diff_2['changed'] = [u for u in diff_2['changed'] if u != uid]
 
         if sync_mode == "bidirectional":
@@ -171,6 +168,34 @@ class Synchronization:
                 event_in_cal2 = cal2.get_event_by_uid(uid)
                 cal1.add_event(event_in_cal2)
                 ref.add_event(event_in_cal2)
+
+    @staticmethod
+    def _conflict(base, event1, event2):
+        fields = ["summary", "start", "end", "description", "location"]
+
+        if event1 == event2:
+            # Added or modified on both side, but the same way
+            # We return one to update ref
+            return [event1]
+
+        if base is None:
+            event2.set_uid()
+            event1.conflict()
+            event2.conflict()
+            return [event1, event2]
+
+        changed1 = [f for f in fields if getattr(event1, f) != getattr(base, f)]
+        changed2 = [f for f in fields if getattr(event2, f) != getattr(base, f)]
+
+        if not changed1 or not changed2 or set(changed1) & set(changed2):
+            event2.set_uid()
+            event1.conflict()
+            event2.conflict()
+            return [event1, event2]
+
+        for field in changed2:
+            setattr(event1, field, getattr(event2, field))
+        return [event1]
 
     def run(self) -> None:
         """Run the synchronization."""
