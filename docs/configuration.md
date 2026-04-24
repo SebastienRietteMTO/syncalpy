@@ -31,7 +31,32 @@ Each calendar supports:
 - `protocol`: Protocol type (caldav, ics_file, zimbra)
 - `url`: Calendar URL or file path
 - `user`: Username (for CalDAV/Zimbra)
-- `password`: Password (for CalDAV/Zimbra)
+- `password`: Password (for CalDAV/Zimbra), or special value `NETRC` to read from netrc file
+
+## Using NETRC for Passwords
+
+Instead of storing passwords in the configuration file, you can use the special value `NETRC` to read credentials from the `~/.netrc` file:
+
+```yaml
+synchronizations:
+  - name: "my-sync"
+    calendar1:
+      protocol: "caldav"
+      url: "https://caldav.example.com/calendar"
+      user: "myuser"
+      password: "NETRC"
+```
+
+The `.netrc` file should contain the machine entry:
+
+```
+machine caldav.example.com login myuser password mysecretpass
+```
+
+Make sure the netrc file has appropriate permissions:
+```bash
+chmod 600 ~/.netrc
+```
 - `filters`: List of filters to apply
 
 ## Sync Mode

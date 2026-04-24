@@ -1,5 +1,7 @@
 """Main synchronization logic."""
 
+import netrc
+from pathlib import Path
 from typing import Any, Dict
 
 from .calendar import Calendar
@@ -43,14 +45,54 @@ class Synchronization:
         """Get sync mode."""
         return self._config.get("sync_mode", "bidirectional")
 
+    def _resolve_password(self, password: str, cal_url: str, username: str) -> str:
+        """Resolve password, supporting NETRC special value.
+
+        If password is 'NETRC', read credentials from ~/.netrc file
+        using the hostname from the calendar URL.
+        """
+        if password != "NETRC":
+            return password
+
+        try:
+            from urllib.parse import urlparse
+            netrc_path = Path.home() / ".netrc"
+            if not netrc_path.exists():
+                netrc_path = Path.home() / "_netrc"
+
+            if netrc_path.exists():
+                hostname = ""
+                if cal_url:
+                    parsed = urlparse(cal_url)
+                    hostname = parsed.hostname or ""
+
+                if hostname:
+                    auth = netrc.netrc(str(netrc_path))
+                    auth_entry = auth.authenticators(hostname)
+                    if auth_entry:
+                        login, _, netrc_password = auth_entry
+                        if username and login != username:
+                            return password
+                        if netrc_password:
+                            return netrc_password
+        except Exception:
+            pass
+
+        return password
+
     def _load_calendar(self, cal_config: Dict[str, Any], name: str) -> Calendar:
         """Load and create Calendar from config dict."""
+        username = cal_config.get("user", "")
+        password = cal_config.get("password", "")
+        cal_url = cal_config.get("url", "")
+        password = self._resolve_password(password, cal_url, username)
+
         cal = Calendar(
             name=cal_config.get("name", "calendar"),
-            url=cal_config.get("url", ""),
+            url=cal_url,
             protocol=cal_config.get("protocol", "ics_file"),
-            username=cal_config.get("user", ""),
-            password=cal_config.get("password", ""),
+            username=username,
+            password=password,
             filters=cal_config.get("filters", []),
         )
         protocol_class = get_protocol(cal.protocol)
