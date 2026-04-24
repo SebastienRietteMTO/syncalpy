@@ -10,13 +10,7 @@ from .filters import get_filter
 class Calendar:
     """Represents a calendar with events."""
 
-    name: str
     events: List[CalendarEvent] = field(default_factory=list)
-    url: str = ""
-    protocol: str = ""
-    username: str = ""
-    password: str = ""
-    filters: List[str] = field(default_factory=list)
 
     def get_event_by_uid(self, uid: str) -> Optional[CalendarEvent]:
         """Get an event by its UID."""

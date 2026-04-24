@@ -18,7 +18,7 @@ class CalDAVProtocol(Calendar):
             username: Username for authentication
             password: Password for authentication
         """
-        super().__init__(name="caldav", protocol="caldav")
+        super().__init__()
         self.url = url
         self.username = username
         self.password = password
@@ -35,7 +35,7 @@ class CalDAVProtocol(Calendar):
     def _fetch(self) -> Calendar:
         """Fetch calendar from CalDAV server."""
         try:
-            result = Calendar(name="caldav", protocol="caldav")
+            result = Calendar()
             for event in self.client.events():
                 cal_event = self._parse_event(event)
                 if cal_event:
@@ -101,8 +101,6 @@ class CalDAVProtocol(Calendar):
                 end=end,
                 description=description,
                 location=location,
-                raw_ics=str(ical_component),
-                source="caldav",
             )
         except Exception:
             return None

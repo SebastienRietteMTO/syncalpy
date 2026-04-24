@@ -7,7 +7,7 @@ from typing import Optional
 import requests
 from dateutil import parser as date_parser
 from ..calendar import Calendar
-from ..event import CalendarEvent
+from ..event import CalendarEvent, parse_vevent
 
 
 class ICSFileProtocol(Calendar):
@@ -21,7 +21,7 @@ class ICSFileProtocol(Calendar):
             username: Not used (for compatibility)
             password: Not used (for compatibility)
         """
-        super().__init__(name="ics", protocol="ics_file")
+        super().__init__()
         self.url = url
         self.username = username
         self.password = password
@@ -40,7 +40,7 @@ class ICSFileProtocol(Calendar):
     def _fetch_local(self) -> Calendar:
         """Fetch calendar from local file."""
         if not os.path.exists(self.url):
-            return Calendar(name="ics", protocol="ics_file")
+            return Calendar()
 
         with open(self.url, "r", encoding="utf-8") as f:
             content = f.read()
@@ -73,7 +73,7 @@ class ICSFileProtocol(Calendar):
 
     def _parse_ics(self, content: str) -> Calendar:
         """Parse ICS content to Calendar."""
-        calendar = Calendar(name="ics", protocol="ics_file")
+        calendar = Calendar()
 
         pattern = r"BEGIN:VEVENT.*?END:VEVENT"
         matches = re.findall(pattern, content, re.DOTALL)
@@ -87,46 +87,7 @@ class ICSFileProtocol(Calendar):
 
     def _parse_vevent(self, vevent: str) -> Optional[CalendarEvent]:
         """Parse a VEVENT block to CalendarEvent."""
-        uid_match = re.search(r"UID:(.+)", vevent)
-        summary_match = re.search(r"SUMMARY:(.+)", vevent)
-        dtstart_match = re.search(r"DTSTART(?::|;[^:]+:)(.+)", vevent)
-        dtend_match = re.search(r"DTEND(?::|;[^:]+:)(.+)", vevent)
-        desc_match = re.search(r"DESCRIPTION:(.+)", vevent)
-        location_match = re.search(r"LOCATION:(.+)", vevent)
-
-        if not uid_match:
-            return None
-
-        uid = uid_match.group(1).strip()
-        summary = summary_match.group(1).strip() if summary_match else ""
-
-        start = None
-        if dtstart_match:
-            try:
-                start = date_parser.parse(dtstart_match.group(1).strip())
-            except ValueError:
-                pass
-
-        end = None
-        if dtend_match:
-            try:
-                end = date_parser.parse(dtend_match.group(1).strip())
-            except ValueError:
-                pass
-
-        description = desc_match.group(1).strip() if desc_match else None
-        location = location_match.group(1).strip() if location_match else None
-
-        return CalendarEvent(
-            uid=uid,
-            summary=summary,
-            start=start,
-            end=end,
-            description=description,
-            location=location,
-            raw_ics=vevent,
-            source="ics_file",
-        )
+        return parse_vevent(vevent)
 
     def _build_ics(self, calendar: Calendar) -> str:
         """Build ICS content from calendar."""

@@ -22,7 +22,7 @@ def create_event(uid, summary, days_from_now=0, description=""):
     )
 
 
-def synchronize_calendars(prev_cal, curr_cal1, curr_cal2, sync_mode="bidirectional"):
+def synchronize_calendars(prev_cal, curr_cal1, curr_cal2, sync_mode="bidirectional", filters1=None, filters2=None):
     """Synchronize two calendars using Synchronization.synchronize."""
     cal1 = copy.deepcopy(curr_cal1)
     cal2 = copy.deepcopy(curr_cal2)
@@ -32,8 +32,8 @@ def synchronize_calendars(prev_cal, curr_cal1, curr_cal2, sync_mode="bidirection
     cal2.set_missing_uids()
     ref.set_missing_uids()
 
-    cal1 = cal1.apply_filters(cal1.filters)
-    cal2 = cal2.apply_filters(cal2.filters)
+    cal1 = cal1.apply_filters(filters1 or [])
+    cal2 = cal2.apply_filters(filters2 or [])
 
     Synchronization.synchronize(cal1, cal2, ref, sync_mode)
 
@@ -46,9 +46,9 @@ class TestSyncConflictResolution:
     def test_no_changes(self):
         """No changes - calendars identical."""
         event = create_event("1", "Event", 1)
-        cal1 = Calendar(name="cal1", events=[event])
-        cal2 = Calendar(name="cal2", events=[event])
-        prev_cal = Calendar(name="cal", events=[event])
+        cal1 = Calendar(events=[event])
+        cal2 = Calendar(events=[event])
+        prev_cal = Calendar(events=[event])
 
         updated1, updated2 = synchronize_calendars(prev_cal, cal1, cal2)
 
@@ -58,11 +58,11 @@ class TestSyncConflictResolution:
 
     def test_add_event_to_cal1(self):
         """Add event to calendar 1 propagates to calendar 2."""
-        prev_cal = Calendar(name="cal", events=[])
+        prev_cal = Calendar(events=[])
 
         event = create_event("1", "New Event", 1)
-        curr_cal1 = Calendar(name="cal1", events=[event])
-        curr_cal2 = Calendar(name="cal2", events=[])
+        curr_cal1 = Calendar(events=[event])
+        curr_cal2 = Calendar(events=[])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -75,11 +75,11 @@ class TestSyncConflictResolution:
 
     def test_add_event_to_cal2(self):
         """Add event to calendar 2 propagates to calendar 1."""
-        prev_cal = Calendar(name="cal", events=[])
+        prev_cal = Calendar(events=[])
 
         event = create_event("1", "New Event", 1)
-        curr_cal1 = Calendar(name="cal1", events=[])
-        curr_cal2 = Calendar(name="cal2", events=[event])
+        curr_cal1 = Calendar(events=[])
+        curr_cal2 = Calendar(events=[event])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -93,10 +93,10 @@ class TestSyncConflictResolution:
     def test_delete_event_from_cal1(self):
         """Delete event from calendar 1 propagates to calendar 2."""
         event = create_event("1", "Event", 1)
-        prev_cal = Calendar(name="cal", events=[event])
+        prev_cal = Calendar(events=[event])
 
-        curr_cal1 = Calendar(name="cal1", events=[])
-        curr_cal2 = Calendar(name="cal2", events=[event])
+        curr_cal1 = Calendar(events=[])
+        curr_cal2 = Calendar(events=[event])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -109,10 +109,10 @@ class TestSyncConflictResolution:
     def test_delete_event_from_cal2(self):
         """Delete event from calendar 2 propagates to calendar 1."""
         event = create_event("1", "Event", 1)
-        prev_cal = Calendar(name="cal", events=[event])
+        prev_cal = Calendar(events=[event])
 
-        curr_cal1 = Calendar(name="cal1", events=[event])
-        curr_cal2 = Calendar(name="cal2", events=[])
+        curr_cal1 = Calendar(events=[event])
+        curr_cal2 = Calendar(events=[])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -125,13 +125,13 @@ class TestSyncConflictResolution:
     def test_conflict_delete_cal1_modify_cal2(self):
         """Conflict: delete from cal1, modify in cal2."""
         old_event = create_event("1", "Event", 1)
-        prev_cal = Calendar(name="cal", events=[old_event])
+        prev_cal = Calendar(events=[old_event])
 
-        curr_cal1 = Calendar(name="cal1", events=[])
+        curr_cal1 = Calendar(events=[])
         event2 = CalendarEvent(
             uid="1", summary="Modified", start=old_event.start, end=old_event.end
         )
-        curr_cal2 = Calendar(name="cal2", events=[event2])
+        curr_cal2 = Calendar(events=[event2])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -144,13 +144,13 @@ class TestSyncConflictResolution:
     def test_conflict_modify_cal1_delete_cal2(self):
         """Conflict: modify in cal1, delete from cal2."""
         old_event = create_event("1", "Event", 1)
-        prev_cal = Calendar(name="cal", events=[old_event])
+        prev_cal = Calendar(events=[old_event])
 
         event1 = CalendarEvent(
             uid="1", summary="Modified", start=old_event.start, end=old_event.end
         )
-        curr_cal1 = Calendar(name="cal1", events=[event1])
-        curr_cal2 = Calendar(name="cal2", events=[])
+        curr_cal1 = Calendar(events=[event1])
+        curr_cal2 = Calendar(events=[])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -163,7 +163,7 @@ class TestSyncConflictResolution:
     def test_conflict_modify_both_titles(self):
         """Conflict: modify title on both sides - create conflict event."""
         old_event = create_event("1", "Original", 1)
-        prev_cal = Calendar(name="cal", events=[old_event])
+        prev_cal = Calendar(events=[old_event])
 
         event1 = CalendarEvent(
             uid="1", summary="Modified by cal1", start=old_event.start, end=old_event.end
@@ -171,8 +171,8 @@ class TestSyncConflictResolution:
         event2 = CalendarEvent(
             uid="1", summary="Modified by cal2", start=old_event.start, end=old_event.end
         )
-        curr_cal1 = Calendar(name="cal1", events=[event1])
-        curr_cal2 = Calendar(name="cal2", events=[event2])
+        curr_cal1 = Calendar(events=[event1])
+        curr_cal2 = Calendar(events=[event2])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -187,7 +187,7 @@ class TestSyncConflictResolution:
     def test_conflict_modify_both_dates(self):
         """Conflict: modify dates on both sides - create conflict event."""
         old_event = create_event("1", "Event", 1)
-        prev_cal = Calendar(name="cal", events=[old_event])
+        prev_cal = Calendar(events=[old_event])
 
         event1 = CalendarEvent(
             uid="1", summary="Event",
@@ -199,8 +199,8 @@ class TestSyncConflictResolution:
             start=datetime.now() + timedelta(days=3),
             end=datetime.now() + timedelta(days=3, hours=1)
         )
-        curr_cal1 = Calendar(name="cal1", events=[event1])
-        curr_cal2 = Calendar(name="cal2", events=[event2])
+        curr_cal1 = Calendar(events=[event1])
+        curr_cal2 = Calendar(events=[event2])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -220,7 +220,7 @@ class TestSyncConflictResolution:
             end=datetime.now() + timedelta(days=1, hours=1),
             description="Original"
         )
-        prev_cal = Calendar(name="cal", events=[old_event])
+        prev_cal = Calendar(events=[old_event])
 
         event1 = CalendarEvent(
             uid="1", summary="Event",
@@ -232,8 +232,8 @@ class TestSyncConflictResolution:
             start=old_event.start, end=old_event.end,
             description="Description from cal2"
         )
-        curr_cal1 = Calendar(name="cal1", events=[event1])
-        curr_cal2 = Calendar(name="cal2", events=[event2])
+        curr_cal1 = Calendar(events=[event1])
+        curr_cal2 = Calendar(events=[event2])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -250,11 +250,11 @@ class TestSyncConflictResolution:
             create_event("1", "Event 1", 1),
             create_event("2", "Event 2", 2),
         ]
-        prev_cal = Calendar(name="cal", events=list(events_prev))
+        prev_cal = Calendar(events=list(events_prev))
 
         event_new = create_event("3", "Event 3", 3)
-        curr_cal1 = Calendar(name="cal1", events=events_prev + [event_new])
-        curr_cal2 = Calendar(name="cal2", events=events_prev)
+        curr_cal1 = Calendar(events=events_prev + [event_new])
+        curr_cal2 = Calendar(events=events_prev)
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -267,10 +267,10 @@ class TestSyncConflictResolution:
         """Bidirectional sync works both ways."""
         event1 = create_event("1", "Event in cal1", 1)
         event2 = create_event("2", "Event in cal2", 2)
-        prev_cal = Calendar(name="cal", events=[])
+        prev_cal = Calendar(events=[])
 
-        curr_cal1 = Calendar(name="cal1", events=[event1])
-        curr_cal2 = Calendar(name="cal2", events=[event2])
+        curr_cal1 = Calendar(events=[event1])
+        curr_cal2 = Calendar(events=[event2])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -283,7 +283,7 @@ class TestSyncConflictResolution:
     def test_complex_conflict_all_changed(self):
         """Complex scenario where both calendars changed all events."""
         base_event = create_event("1", "Base", 1)
-        prev_cal = Calendar(name="cal", events=[base_event])
+        prev_cal = Calendar(events=[base_event])
 
         mod1 = CalendarEvent(
             uid="1", summary="Modified by cal1",
@@ -293,8 +293,8 @@ class TestSyncConflictResolution:
             uid="1", summary="Modified by cal2",
             start=base_event.start, end=base_event.end
         )
-        curr_cal1 = Calendar(name="cal1", events=[mod1])
-        curr_cal2 = Calendar(name="cal2", events=[mod2])
+        curr_cal1 = Calendar(events=[mod1])
+        curr_cal2 = Calendar(events=[mod2])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -315,17 +315,16 @@ class TestSyncWithFilters:
         past_event = create_event("1", "Past Event", -1)
         future_event = create_event("2", "Future Event", 1)
 
-        prev_cal = Calendar(name="cal", events=[])
+        prev_cal = Calendar(events=[])
 
         curr_cal1 = Calendar(
-            name="cal1",
-            events=[past_event, future_event],
-            filters=[{"name": "future_only"}]
+            events=[past_event, future_event]
         )
-        curr_cal2 = Calendar(name="cal2", events=[])
+        curr_cal2 = Calendar(events=[])
 
         updated1, updated2 = synchronize_calendars(
-            prev_cal, curr_cal1, curr_cal2
+            prev_cal, curr_cal1, curr_cal2,
+            filters1=[{"name": "future_only"}]
         )
 
         assert updated2.get_event_by_uid("2") is not None
@@ -336,17 +335,16 @@ class TestSyncWithFilters:
         event1 = create_event("1", "WORK Meeting", 1)
         event2 = create_event("2", "PRIVATE Lunch", 2)
 
-        prev_cal = Calendar(name="cal", events=[])
+        prev_cal = Calendar(events=[])
 
         curr_cal1 = Calendar(
-            name="cal1",
-            events=[event1, event2],
-            filters=[{"name": "regexp_summary", "pattern": "WORK"}]
+            events=[event1, event2]
         )
-        curr_cal2 = Calendar(name="cal2", events=[])
+        curr_cal2 = Calendar(events=[])
 
         updated1, updated2 = synchronize_calendars(
-            prev_cal, curr_cal1, curr_cal2
+            prev_cal, curr_cal1, curr_cal2,
+            filters1=[{"name": "regexp_summary", "pattern": "WORK"}]
         )
 
         assert len(updated2.events) == 1
@@ -358,9 +356,9 @@ class TestEdgeCases:
 
     def test_empty_calendars(self):
         """Empty calendars sync correctly."""
-        prev_cal = Calendar(name="cal1", events=[])
-        curr_cal1 = Calendar(name="cal1", events=[])
-        curr_cal2 = Calendar(name="cal2", events=[])
+        prev_cal = Calendar(events=[])
+        curr_cal1 = Calendar(events=[])
+        curr_cal2 = Calendar(events=[])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -377,10 +375,10 @@ class TestEdgeCases:
             start=datetime.now() + timedelta(days=1),
             end=datetime.now() + timedelta(days=1, hours=1),
         )
-        prev_cal = Calendar(name="cal1", events=[])
+        prev_cal = Calendar(events=[])
 
-        curr_cal1 = Calendar(name="cal1", events=[event])
-        curr_cal2 = Calendar(name="cal2", events=[])
+        curr_cal1 = Calendar(events=[event])
+        curr_cal2 = Calendar(events=[])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2
@@ -394,10 +392,10 @@ class TestEdgeCases:
         event1 = create_event("1", "Existing Event", 1)
         event2 = create_event("2", "New Event", 2)
 
-        prev_cal = Calendar(name="cal1", events=[event1])
+        prev_cal = Calendar(events=[event1])
 
-        curr_cal1 = Calendar(name="cal1", events=[event1, event2])
-        curr_cal2 = Calendar(name="cal2", events=[event1])
+        curr_cal1 = Calendar(events=[event1, event2])
+        curr_cal2 = Calendar(events=[event1])
 
         updated1, updated2 = synchronize_calendars(
             prev_cal, curr_cal1, curr_cal2

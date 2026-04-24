@@ -20,7 +20,7 @@ class JCalProtocol(Calendar):
             username: Not used (for compatibility)
             password: Not used (for compatibility)
         """
-        super().__init__(name="jcal", protocol="jcal")
+        super().__init__()
         self.url = url
         self.username = username
         self.password = password
@@ -41,7 +41,7 @@ class JCalProtocol(Calendar):
         """Fetch calendar from local file."""
         import os
         if not os.path.exists(self.url):
-            return Calendar(name="jcal", protocol="jcal")
+            return Calendar()
 
         with open(self.url, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -83,7 +83,7 @@ class JCalProtocol(Calendar):
 
     def _parse_response(self, data: Dict) -> Calendar:
         """Parse jCal response to Calendar."""
-        calendar = Calendar(name="jcal", protocol="jcal")
+        calendar = Calendar()
 
         if isinstance(data, dict) and "items" in data:
             items = data.get("items", [])
@@ -134,7 +134,6 @@ class JCalProtocol(Calendar):
             end=end,
             description=description,
             location=location,
-            source="jcal",
         )
 
     def _build_json_event(self, event: CalendarEvent) -> Dict:

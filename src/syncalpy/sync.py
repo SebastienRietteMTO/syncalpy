@@ -87,34 +87,24 @@ class Synchronization:
         cal_url = cal_config.get("url", "")
         password = self._resolve_password(password, cal_url, username)
 
-        cal = Calendar(
-            name=cal_config.get("name", "calendar"),
+        protocol_class = get_protocol(cal_config.get("protocol", "ics_file"))
+        calendar = protocol_class(
             url=cal_url,
-            protocol=cal_config.get("protocol", "ics_file"),
             username=username,
             password=password,
-            filters=cal_config.get("filters", []),
         )
-        protocol_class = get_protocol(cal.protocol)
-        calendar = protocol_class(
-            url=cal.url,
-            username=cal.username,
-            password=cal.password,
-        )
-        calendar.name = name
-        calendar.filters = cal.filters
         calendar.set_missing_uids()
         return calendar
 
     def get_cal1(self) -> Calendar:
         """Get calendar 1 with filters applied."""
         cal1 = self._load_calendar(self.cal1_config, self.cal1_name)
-        return cal1.apply_filters(cal1.filters)
+        return cal1.apply_filters(self.cal1_config.get("filters", []))
 
     def get_cal2(self) -> Calendar:
         """Get calendar 2 with filters applied."""
         cal2 = self._load_calendar(self.cal2_config, self.cal2_name)
-        return cal2.apply_filters(cal2.filters)
+        return cal2.apply_filters(self.cal2_config.get("filters", []))
 
     def get_state_calendar(self) -> JCalProtocol:
         """Get the state calendar for this synchronization."""

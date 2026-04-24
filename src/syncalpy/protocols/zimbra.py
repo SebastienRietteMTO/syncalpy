@@ -6,7 +6,7 @@ from typing import Optional
 import requests
 from dateutil import parser as date_parser
 from ..calendar import Calendar
-from ..event import CalendarEvent
+from ..event import CalendarEvent, parse_vevent
 
 
 class ZimbraProtocol(Calendar):
@@ -20,7 +20,7 @@ class ZimbraProtocol(Calendar):
             username: Username for authentication
             password: Password for authentication
         """
-        super().__init__(name="zimbra", protocol="zimbra")
+        super().__init__()
         self.url = url.rstrip("/")
         self.username = username
         self.password = password
@@ -93,7 +93,7 @@ class ZimbraProtocol(Calendar):
 
     def _parse_ics(self, content: str) -> Calendar:
         """Parse ICS content to Calendar."""
-        calendar = Calendar(name="zimbra", protocol="zimbra")
+        calendar = Calendar()
 
         pattern = r"BEGIN:VEVENT.*?END:VEVENT"
         matches = re.findall(pattern, content, re.DOTALL)
@@ -107,46 +107,7 @@ class ZimbraProtocol(Calendar):
 
     def _parse_vevent(self, vevent: str) -> Optional[CalendarEvent]:
         """Parse a VEVENT block to CalendarEvent."""
-        uid_match = re.search(r"UID:(.+)", vevent)
-        summary_match = re.search(r"SUMMARY:(.+)", vevent)
-        dtstart_match = re.search(r"DTSTART(?::|;[^:]+:)(.+)", vevent)
-        dtend_match = re.search(r"DTEND(?::|;[^:]+:)(.+)", vevent)
-        desc_match = re.search(r"DESCRIPTION:(.+)", vevent)
-        location_match = re.search(r"LOCATION:(.+)", vevent)
-
-        if not uid_match:
-            return None
-
-        uid = uid_match.group(1).strip()
-        summary = summary_match.group(1).strip() if summary_match else ""
-
-        start = None
-        if dtstart_match:
-            try:
-                start = date_parser.parse(dtstart_match.group(1).strip())
-            except ValueError:
-                pass
-
-        end = None
-        if dtend_match:
-            try:
-                end = date_parser.parse(dtend_match.group(1).strip())
-            except ValueError:
-                pass
-
-        description = desc_match.group(1).strip() if desc_match else None
-        location = location_match.group(1).strip() if location_match else None
-
-        return CalendarEvent(
-            uid=uid,
-            summary=summary,
-            start=start,
-            end=end,
-            description=description,
-            location=location,
-            raw_ics=vevent,
-            source="zimbra",
-        )
+        return parse_vevent(vevent)
 
     def _build_ics_event(self, event: CalendarEvent) -> str:
         """Build ICS content for a single event."""

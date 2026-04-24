@@ -11,7 +11,7 @@ class TestCalendar:
 
     def test_add_event(self):
         """Add event to calendar."""
-        calendar = Calendar(name="test")
+        calendar = Calendar()
         event = CalendarEvent(uid="1", summary="Test", start=datetime.now())
 
         calendar.add_event(event)
@@ -21,7 +21,7 @@ class TestCalendar:
 
     def test_remove_event(self):
         """Remove event from calendar."""
-        calendar = Calendar(name="test")
+        calendar = Calendar()
         event = CalendarEvent(uid="1", summary="Test", start=datetime.now())
         calendar.add_event(event)
 
@@ -32,7 +32,7 @@ class TestCalendar:
 
     def test_remove_nonexistent(self):
         """Remove nonexistent event returns False."""
-        calendar = Calendar(name="test")
+        calendar = Calendar()
 
         result = calendar.remove_event("1")
 
@@ -40,8 +40,8 @@ class TestCalendar:
 
     def test_diff_added(self):
         """Diff detects added events in self not in other."""
-        old_cal = Calendar(name="test")
-        new_cal = Calendar(name="test")
+        old_cal = Calendar()
+        new_cal = Calendar()
         new_event = CalendarEvent(uid="1", summary="New", start=datetime.now())
         new_cal.add_event(new_event)
 
@@ -53,11 +53,11 @@ class TestCalendar:
 
     def test_diff_removed(self):
         """Diff detects removed events (old not in new)."""
-        old_cal = Calendar(name="test")
+        old_cal = Calendar()
         old_event = CalendarEvent(uid="1", summary="Old", start=datetime.now())
         old_cal.add_event(old_event)
 
-        new_cal = Calendar(name="test")
+        new_cal = Calendar()
 
         diff = new_cal.diff(old_cal)
 
@@ -67,11 +67,11 @@ class TestCalendar:
 
     def test_diff_modified(self):
         """Diff detects modified events."""
-        old_cal = Calendar(name="test")
+        old_cal = Calendar()
         old_event = CalendarEvent(uid="1", summary="Old", start=datetime.now())
         old_cal.add_event(old_event)
 
-        new_cal = Calendar(name="test")
+        new_cal = Calendar()
         new_event = CalendarEvent(uid="1", summary="New", start=datetime.now())
         new_cal.add_event(new_event)
 

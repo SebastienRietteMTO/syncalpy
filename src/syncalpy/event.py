@@ -1,10 +1,11 @@
 """Event model for calendar events."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import uuid
 import re
+from dateutil import parser as date_parser
 
 
 @dataclass
@@ -19,8 +20,6 @@ class CalendarEvent:
     location: Optional[str] = None
     created: Optional[datetime] = None
     modified: Optional[datetime] = None
-    raw_ics: str = ""
-    source: str = ""
     _hidden: bool = False
 
     @property
@@ -139,3 +138,45 @@ class CalendarEvent:
             else:
                 num = int(num_str) + 1
                 self.summary = re.sub(pattern, f"[CONFLICT {num}] ", self.summary, count=1)
+
+
+def parse_vevent(vevent: str) -> Optional["CalendarEvent"]:
+    """Parse a VEVENT block to CalendarEvent."""
+    uid_match = re.search(r"UID:(.+)", vevent)
+    summary_match = re.search(r"SUMMARY:(.+)", vevent)
+    dtstart_match = re.search(r"DTSTART(?::|;[^:]+:)(.+)", vevent)
+    dtend_match = re.search(r"DTEND(?::|;[^:]+:)(.+)", vevent)
+    desc_match = re.search(r"DESCRIPTION:(.+)", vevent)
+    location_match = re.search(r"LOCATION:(.+)", vevent)
+
+    if not uid_match:
+        return None
+
+    uid = uid_match.group(1).strip()
+    summary = summary_match.group(1).strip() if summary_match else ""
+
+    start = None
+    if dtstart_match:
+        try:
+            start = date_parser.parse(dtstart_match.group(1).strip())
+        except ValueError:
+            pass
+
+    end = None
+    if dtend_match:
+        try:
+            end = date_parser.parse(dtend_match.group(1).strip())
+        except ValueError:
+            pass
+
+    description = desc_match.group(1).strip() if desc_match else None
+    location = location_match.group(1).strip() if location_match else None
+
+    return CalendarEvent(
+        uid=uid,
+        summary=summary,
+        start=start,
+        end=end,
+        description=description,
+        location=location,
+    )
