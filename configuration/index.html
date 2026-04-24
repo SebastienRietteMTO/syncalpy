@@ -322,6 +322,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#using-netrc-for-passwords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using NETRC for Passwords
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sync-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -466,6 +477,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#using-netrc-for-passwords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using NETRC for Passwords
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sync-mode" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -585,7 +607,25 @@
 <li><code>protocol</code>: Protocol type (caldav, ics_file, zimbra)</li>
 <li><code>url</code>: Calendar URL or file path</li>
 <li><code>user</code>: Username (for CalDAV/Zimbra)</li>
-<li><code>password</code>: Password (for CalDAV/Zimbra)</li>
+<li><code>password</code>: Password (for CalDAV/Zimbra), or special value <code>NETRC</code> to read from netrc file</li>
+</ul>
+<h2 id="using-netrc-for-passwords">Using NETRC for Passwords</h2>
+<p>Instead of storing passwords in the configuration file, you can use the special value <code>NETRC</code> to read credentials from the <code>~/.netrc</code> file:</p>
+<pre><code class="language-yaml">synchronizations:
+  - name: &quot;my-sync&quot;
+    calendar1:
+      protocol: &quot;caldav&quot;
+      url: &quot;https://caldav.example.com/calendar&quot;
+      user: &quot;myuser&quot;
+      password: &quot;NETRC&quot;
+</code></pre>
+<p>The <code>.netrc</code> file should contain the machine entry:</p>
+<pre><code>machine caldav.example.com login myuser password mysecretpass
+</code></pre>
+<p>Make sure the netrc file has appropriate permissions:</p>
+<pre><code class="language-bash">chmod 600 ~/.netrc
+</code></pre>
+<ul>
 <li><code>filters</code>: List of filters to apply</li>
 </ul>
 <h2 id="sync-mode">Sync Mode</h2>
