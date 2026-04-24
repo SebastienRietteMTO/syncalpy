@@ -2,11 +2,13 @@
 
 from .caldav import CalDAVProtocol
 from .ics_file import ICSFileProtocol
+from .jcal import JCalProtocol
 from .zimbra import ZimbraProtocol
 
 PROTOCOL_REGISTRY = {
     "caldav": CalDAVProtocol,
     "ics_file": ICSFileProtocol,
+    "jcal": JCalProtocol,
     "zimbra": ZimbraProtocol,
 }
 
@@ -22,6 +24,7 @@ def get_protocol(protocol_name: str):
 __all__ = [
     "CalDAVProtocol",
     "ICSFileProtocol",
+    "JCalProtocol",
     "ZimbraProtocol",
     "get_protocol",
     "PROTOCOL_REGISTRY",

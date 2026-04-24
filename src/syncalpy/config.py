@@ -1,13 +1,10 @@
 """Configuration management."""
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import yaml
-from .calendar import Calendar
-from .filters import get_filter
-from .protocols import get_protocol
-
+from .sync import Synchronization
 
 DEFAULT_CONFIG_DIR = Path.home() / ".syncalpy"
 
@@ -46,62 +43,15 @@ class Config:
         with open(self.config_file, "w", encoding="utf-8") as f:
             yaml.safe_dump(self._config, f, default_flow_style=False)
 
-    def get_synchronizations(self) -> List[Dict[str, Any]]:
+    def get_synchronizations(self):
         """Get list of synchronizations."""
-        return self._config.get("synchronizations", [])
-
-    def add_synchronization(self, sync: Dict[str, Any]) -> None:
-        """Add a synchronization."""
-        syncs = self._config.get("synchronizations", [])
-        syncs.append(sync)
-        self._config["synchronizations"] = syncs
-        self.save()
+        state_dir = str(self.get_state_dir())
+        return [
+            Synchronization(sync, state_dir)
+            for sync in self._config.get("synchronizations", [])
+        ]
 
     def get_state_dir(self) -> Path:
         """Get state directory."""
         self.state_dir.mkdir(parents=True, exist_ok=True)
         return self.state_dir
-
-
-def load_calendar_config(cal_config: Dict[str, Any]) -> Calendar:
-    """Load Calendar from config dict."""
-    calendar = Calendar(
-        name=cal_config.get("name", "calendar"),
-        url=cal_config.get("url", ""),
-        protocol=cal_config.get("protocol", "ics_file"),
-        username=cal_config.get("user", ""),
-        password=cal_config.get("password", ""),
-        filters=cal_config.get("filters", []),
-    )
-
-    return calendar
-
-
-def create_protocol(calendar: Calendar):
-    """Create protocol instance from calendar config."""
-    protocol_class = get_protocol(calendar.protocol)
-    return protocol_class(
-        url=calendar.url,
-        username=calendar.username,
-        password=calendar.password,
-    )
-
-
-def apply_filters(calendar: Calendar) -> Calendar:
-    """Apply filters to calendar events on a copy."""
-    from copy import copy
-    filtered_calendar = copy(calendar)
-    filtered_calendar.events = list(calendar.events)
-    events = filtered_calendar.events
-    for filter_config in calendar.filters:
-        if isinstance(filter_config, dict):
-            filter_name = filter_config.get("name")
-            filter_params = {k: v for k, v in filter_config.items() if k != "name"}
-            filter_obj = get_filter(filter_name, **filter_params)
-            events = filter_obj.filter(events)
-        elif isinstance(filter_config, str):
-            filter_obj = get_filter(filter_config)
-            events = filter_obj.filter(events)
-
-    filtered_calendar.events = events
-    return filtered_calendar

@@ -4,7 +4,6 @@ import argparse
 import sys
 
 from .config import Config
-from .sync import run_synchronization
 
 
 def main():
@@ -58,7 +57,7 @@ def main():
         for i, sync in enumerate(syncs, 1):
             print(f"\n=== Synchronization {i}/{len(syncs)} ===")
             try:
-                run_synchronization(sync, config)
+                sync.run()
             except (RuntimeError, FileNotFoundError, OSError) as e:
                 print(f"Error: {e}")
                 return 1
@@ -73,9 +72,7 @@ def main():
             return 0
 
         for i, sync in enumerate(syncs, 1):
-            cal1 = sync.get("calendar1", {})
-            cal2 = sync.get("calendar2", {})
-            print(f"{i}. {cal1.get('name', 'calendar1')} <-> {cal2.get('name', 'calendar2')}")
+            print(f"{i}. {sync.cal1_name} <-> {sync.cal2_name}")
 
         return 0
 

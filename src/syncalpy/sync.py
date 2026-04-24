@@ -1,293 +1,146 @@
 """Main synchronization logic."""
 
-import json
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from .calendar import Calendar
 from .event import CalendarEvent
-from .config import Config, apply_filters, create_protocol, load_calendar_config
+from .protocols.jcal import JCalProtocol
+from .protocols import get_protocol
 
 
-def load_state(state_dir: Path, name: str) -> Calendar:
-    """Load calendar state from state directory."""
-    state_file = state_dir / f"{name}.json"
-    if not state_file.exists():
-        return Calendar(name=name)
+class Synchronization:
+    """Represents a single synchronization configuration."""
 
-    with open(state_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    def __init__(self, sync_config: Dict[str, Any], state_dir: str):
+        """Initialize synchronization.
 
-    events = []
-    for event_data in data.get("events", []):
-        event = CalendarEvent(
-            uid=event_data["uid"],
-            summary=event_data["summary"],
-            start=datetime.fromisoformat(event_data["start"]) if event_data.get("start") else None,
-            end=datetime.fromisoformat(event_data["end"]) if event_data.get("end") else None,
-            description=event_data.get("description"),
-            location=event_data.get("location"),
-            source=event_data.get("source", ""),
+        Args:
+            sync_config: Synchronization configuration dict
+            state_dir: Path to state directory
+        """
+        self._config = sync_config
+        self._state_dir = state_dir
+        self.cal1_config = sync_config.get("calendar1", {})
+        self.cal2_config = sync_config.get("calendar2", {})
+
+    @property
+    def name(self) -> str:
+        """Get synchronization name."""
+        return self._config.get("name", "sync")
+
+    @property
+    def cal1_name(self) -> str:
+        """Get calendar 1 name."""
+        return self.cal1_config.get("name", "calendar1")
+
+    @property
+    def cal2_name(self) -> str:
+        """Get calendar 2 name."""
+        return self.cal2_config.get("name", "calendar2")
+
+    @property
+    def sync_mode(self) -> str:
+        """Get sync mode."""
+        return self._config.get("sync_mode", "bidirectional")
+
+    def _load_calendar(self, cal_config: Dict[str, Any], name: str) -> Calendar:
+        """Load and create Calendar from config dict."""
+        cal = Calendar(
+            name=cal_config.get("name", "calendar"),
+            url=cal_config.get("url", ""),
+            protocol=cal_config.get("protocol", "ics_file"),
+            username=cal_config.get("user", ""),
+            password=cal_config.get("password", ""),
+            filters=cal_config.get("filters", []),
         )
-        events.append(event)
+        protocol_class = get_protocol(cal.protocol)
+        calendar = protocol_class(
+            url=cal.url,
+            username=cal.username,
+            password=cal.password,
+        )
+        calendar.name = name
+        calendar.filters = cal.filters
+        calendar.set_missing_uids()
+        return calendar
 
-    calendar = Calendar(name=name, events=events)
-    return calendar
+    def get_cal1(self) -> Calendar:
+        """Get calendar 1 with filters applied."""
+        cal1 = self._load_calendar(self.cal1_config, self.cal1_name)
+        return cal1.apply_filters(cal1.filters)
 
+    def get_cal2(self) -> Calendar:
+        """Get calendar 2 with filters applied."""
+        cal2 = self._load_calendar(self.cal2_config, self.cal2_name)
+        return cal2.apply_filters(cal2.filters)
 
-def save_state(state_dir: Path, calendar: Calendar) -> None:
-    """Save calendar state to state directory."""
-    state_dir.mkdir(parents=True, exist_ok=True)
-    state_file = state_dir / f"{calendar.name}.json"
+    def get_state_calendar(self) -> JCalProtocol:
+        """Get the state calendar for this synchronization."""
+        return JCalProtocol(f"{self._state_dir}/{self.name}.json")
 
-    events = []
-    for event in calendar.events:
-        events.append({
-            "uid": event.uid,
-            "summary": event.summary,
-            "start": event.start.isoformat() if event.start else None,
-            "end": event.end.isoformat() if event.end else None,
-            "description": event.description,
-            "location": event.location,
-            "source": event.source,
-        })
+    @staticmethod
+    def synchronize(cal1, cal2, ref, sync_mode):
+        """Run the synchronization"""
 
-    data = {"events": events}
+        if sync_mode == "cal2_to_cal1":
+            cal1, cal2 = cal2, cal1
 
-    with open(state_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+        diff_1 = cal1.diff(ref)
+        diff_2 = cal2.diff(ref)
 
+        for uid in diff_1['removed']:
+            # Removed uid in cal1
+            if sync_mode != "bidirectional" or uid not in diff_2['changed']:
+                # If not bidirectional, cal2 is a copy
+                # If bidirectional and uid has not changed in cal2, we delete in cal2
+                # uid can have been also deleted in cal2
+                cal2.remove_event(uid)
+                ref.remove_event(uid)
+                diff_2['removed'] = [u for u in diff_2['removed'] if u != uid]
+            else:
+                # We deleted from cal1 but there's un update in cal2
+                # We keep the cal2 version everywhere
+                event_in_cal2 = cal2.get_event_by_uid(uid)
+                cal1.add_event(event_in_cal2)
+                ref.add_event(event_in_cal2)
+                diff_2['changed'] = [u for u in diff_2['changed'] if u != uid]
 
-def synchronize_calendars(
-    prev_cal1: Calendar,
-    prev_cal2: Calendar,
-    curr_cal1: Calendar,
-    curr_cal2: Calendar,
-    raw_cal1: Calendar = None,
-    raw_cal2: Calendar = None,
-    sync_mode: str = "bidirectional",
-) -> Tuple[Calendar, Calendar]:
-    """Synchronize two calendars.
+        for uid in diff_1['changed']:
+            # Modified uid in cal1
+            if sync_mode != "bidirectional" or uid not in diff_2['changed']:
+                # If not bidirectional, cal2 is a copy
+                # If bidirectional and uid has not changed in cal2, we copy
+                # uid can have been deleted in cal2
+                event_in_cal1 = cal1.get_event_by_uid(uid)
+                cal2.add_event(event_in_cal1)
+                ref.add_event(event_in_cal1)
+                diff_2['removed'] = [u for u in diff_2['removed'] if u != uid]
+            else:
+                # Modified in both versions
+                # There is a conflict, we push both versions in cal1 and cal2
+                e1 = cal1.get_event_by_uid(uid)
+                e2 = cal2.get_event_by_uid(uid)
+                if e1 != e2:
+                    # Added or modified on both sides, differently
+                    e2.set_uid() # Change uid for one version
+                    for event in (e1, e2):
+                        event.conflict()
+                        cal1.add_event(event)
+                        cal2.add_event(event)
+                        ref.add_event(event)
+                diff_2['changed'] = [u for u in diff_2['changed'] if u != uid]
 
-    Returns the updated calendars after synchronization.
-    In case of conflict, keeps both versions (prudent approach).
+        if sync_mode == "bidirectional":
+            # All conflicts has been solved
+            for uid in diff_2['removed']:
+                cal1.remove_event(uid)
+                ref.remove_event(uid)
+            for uid in diff_2['changed']:
+                event_in_cal2 = cal2.get_event_by_uid(uid)
+                cal1.add_event(event_in_cal2)
+                ref.add_event(event_in_cal2)
 
-    Args:
-        prev_cal1: Previous state of calendar 1
-        prev_cal2: Previous state of calendar 2
-        curr_cal1: Current state of calendar 1 (filtered, used for sync)
-        curr_cal2: Current state of calendar 2 (filtered, used for sync)
-        raw_cal1: Raw calendar 1 (unfiltered, for preserving events)
-        raw_cal2: Raw calendar 2 (unfiltered, for preserving events)
-        sync_mode: "bidirectional", "cal1_to_cal2", or "cal2_to_cal1"
-
-    Returns:
-        Tuple of updated calendars
-    """
-    diff_1 = curr_cal1.diff(prev_cal1)
-    diff_2 = curr_cal2.diff(prev_cal2)
-
-    if sync_mode == "cal1_to_cal2":
-        base_events1 = list(curr_cal1.events) if raw_cal1 is None else list(raw_cal1.events)
-        base_events2 = list(curr_cal1.events)
-    elif sync_mode == "cal2_to_cal1":
-        base_events1 = list(curr_cal2.events)
-        base_events2 = list(curr_cal2.events) if raw_cal2 is None else list(raw_cal2.events)
-    elif sync_mode == "bidirectional":
-        base_events1 = list(curr_cal1.events) if raw_cal1 is None else list(raw_cal1.events)
-        base_events2 = list(curr_cal2.events) if raw_cal2 is None else list(raw_cal2.events)
-    else:
-        base_events1 = list(curr_cal1.events)
-        base_events2 = list(curr_cal2.events)
-
-    updated_cal1 = Calendar(
-        name=curr_cal1.name,
-        events=base_events1,
-        url=curr_cal1.url,
-        protocol=curr_cal1.protocol,
-    )
-    updated_cal2 = Calendar(
-        name=curr_cal2.name,
-        events=base_events2,
-        url=curr_cal2.url,
-        protocol=curr_cal2.protocol,
-    )
-
-    if sync_mode in ("bidirectional", "cal1_to_cal2"):
-        for event in diff_1["added"]:
-            existing = updated_cal2.get_event_by_uid(event.uid)
-            if not existing:
-                new_event = CalendarEvent(
-                    uid=event.uid,
-                    summary=event.summary,
-                    start=event.start,
-                    end=event.end,
-                    description=event.description,
-                    location=event.location,
-                    source=updated_cal2.name,
-                )
-                updated_cal2.add_event(new_event)
-
-        for event in diff_1["removed"]:
-            changed_uids = {e.uid for e in diff_2["added"]}
-            changed_uids |= {pair[0].uid for pair in diff_2["modified"]}
-            changed_uids |= {pair[1].uid for pair in diff_2["modified"]}
-            if event.uid in changed_uids:
-                continue
-            existing = updated_cal2.get_event_by_uid(event.uid)
-            if existing:
-                updated_cal2.remove_event(event.uid)
-
-        for event_pair in diff_1["modified"]:
-            new_event = event_pair[0]
-            existing = updated_cal2.get_event_by_uid(new_event.uid)
-            if existing and not Calendar.events_equal(existing, new_event):
-                conflict_event = CalendarEvent(
-                    uid=f"{new_event.uid}_conflict",
-                    summary=f"[CONFLICT] {new_event.summary}",
-                    start=new_event.start,
-                    end=new_event.end,
-                    description=f"Original: {existing.description}\nModified: {new_event.description}",
-                    location=new_event.location,
-                    source=updated_cal2.name,
-                )
-                updated_cal2.add_event(conflict_event)
-            elif not existing:
-                new_event_copy = CalendarEvent(
-                    uid=new_event.uid,
-                    summary=new_event.summary,
-                    start=new_event.start,
-                    end=new_event.end,
-                    description=new_event.description,
-                    location=new_event.location,
-                    source=updated_cal2.name,
-                )
-                updated_cal2.add_event(new_event_copy)
-
-    if sync_mode in ("bidirectional", "cal2_to_cal1"):
-        for event in diff_2["added"]:
-            existing = updated_cal1.get_event_by_uid(event.uid)
-            if not existing:
-                new_event = CalendarEvent(
-                    uid=event.uid,
-                    summary=event.summary,
-                    start=event.start,
-                    end=event.end,
-                    description=event.description,
-                    location=event.location,
-                    source=updated_cal1.name,
-                )
-                updated_cal1.add_event(new_event)
-
-        for event in diff_2["removed"]:
-            changed_uids = {e.uid for e in diff_1["added"]}
-            changed_uids |= {pair[0].uid for pair in diff_1["modified"]}
-            changed_uids |= {pair[1].uid for pair in diff_1["modified"]}
-            if event.uid in changed_uids:
-                continue
-            existing = updated_cal1.get_event_by_uid(event.uid)
-            if existing:
-                updated_cal1.remove_event(event.uid)
-
-        for event_pair in diff_2["modified"]:
-            new_event = event_pair[0]
-            existing = updated_cal1.get_event_by_uid(new_event.uid)
-            if existing and not Calendar.events_equal(existing, new_event):
-                conflict_event = CalendarEvent(
-                    uid=f"{new_event.uid}_conflict",
-                    summary=f"[CONFLICT] {new_event.summary}",
-                    start=new_event.start,
-                    end=new_event.end,
-                    description=f"Original: {existing.description}\nModified: {new_event.description}",
-                    location=new_event.location,
-                    source=updated_cal1.name,
-                )
-                updated_cal1.add_event(conflict_event)
-            elif not existing:
-                new_event_copy = CalendarEvent(
-                    uid=new_event.uid,
-                    summary=new_event.summary,
-                    start=new_event.start,
-                    end=new_event.end,
-                    description=new_event.description,
-                    location=new_event.location,
-                    source=updated_cal1.name,
-                )
-                updated_cal1.add_event(new_event_copy)
-
-    return updated_cal1, updated_cal2
-
-
-def run_synchronization(sync_config: Dict[str, Any], config: Config) -> None:
-    """Run a single synchronization."""
-    state_dir = config.get_state_dir()
-
-    cal1_config = sync_config.get("calendar1", {})
-    cal2_config = sync_config.get("calendar2", {})
-
-    cal1_name = cal1_config.get("name", "calendar1")
-    cal2_name = cal2_config.get("name", "calendar2")
-    sync_mode = sync_config.get("sync_mode", "bidirectional")
-
-    cal1 = load_calendar_config(cal1_config)
-    cal2 = load_calendar_config(cal2_config)
-
-    protocol1 = create_protocol(cal1)
-    protocol2 = create_protocol(cal2)
-
-    print(f"Fetching {cal1_name}...")
-    raw_cal1 = protocol1.fetch()
-    raw_cal1.name = cal1_name
-    raw_cal1.url = cal1.url
-    raw_cal1.protocol = cal1.protocol
-    raw_cal1.filters = cal1.filters
-
-    print(f"Fetching {cal2_name}...")
-    raw_cal2 = protocol2.fetch()
-    raw_cal2.name = cal2_name
-    raw_cal2.url = cal2.url
-    raw_cal2.protocol = cal2.protocol
-    raw_cal2.filters = cal2.filters
-
-    curr_cal1 = apply_filters(raw_cal1)
-    curr_cal2 = apply_filters(raw_cal2)
-
-    print(f"Loading previous state for {cal1_name}...")
-    prev_cal1 = load_state(state_dir, cal1_name)
-
-    print(f"Loading previous state for {cal2_name}...")
-    prev_cal2 = load_state(state_dir, cal2_name)
-
-    print(f"Synchronizing {cal1_name} <-> {cal2_name}...")
-    updated_cal1, updated_cal2 = synchronize_calendars(
-        prev_cal1, prev_cal2, curr_cal1, curr_cal2, raw_cal1, raw_cal2, sync_mode
-    )
-
-    if sync_mode in ("bidirectional", "cal1_to_cal2"):
-        print(f"Pushing changes to {cal2_name}...")
-        updated_cal2.url = raw_cal2.url
-        updated_cal2.protocol = raw_cal2.protocol
-        try:
-            protocol2_push = create_protocol(updated_cal2)
-            protocol2_push.push(updated_cal2)
-        except (RuntimeError, OSError) as e:
-            print(f"Warning: Failed to push to {cal2_name}: {e}")
-
-    if sync_mode in ("bidirectional", "cal2_to_cal1"):
-        print(f"Pushing changes to {cal1_name}...")
-        updated_cal1.url = raw_cal1.url
-        updated_cal1.protocol = raw_cal1.protocol
-        try:
-            protocol1_push = create_protocol(updated_cal1)
-            protocol1_push.push(updated_cal1)
-        except (RuntimeError, OSError) as e:
-            print(f"Warning: Failed to push to {cal1_name}: {e}")
-
-    print(f"Saving state for {cal1_name}...")
-    save_state(state_dir, updated_cal1)
-
-    print(f"Saving state for {cal2_name}...")
-    save_state(state_dir, updated_cal2)
-
-    print("Synchronization complete.")
+    def run(self) -> None:
+        """Run the synchronization."""
+        with self.get_cal1() as cal1, self.get_cal2() as cal2, self.get_state_calendar() as ref:
+            self.synchronize(cal1, cal2, ref, self.sync_mode)

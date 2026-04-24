@@ -5,7 +5,7 @@ import pytest
 from syncalpy.calendar import Calendar
 from syncalpy.config import Config
 from syncalpy.protocols.ics_file import ICSFileProtocol
-from syncalpy.sync import run_synchronization
+from syncalpy.sync import Synchronization
 
 
 def create_ics_file(path: str, uid: str, summary: str, date: str, location: str = ""):
@@ -53,7 +53,8 @@ class TestICSFileSync:
 """)
 
         config = Config(str(config_dir))
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync = config.get_synchronizations()[0]
+        sync.run()
 
         cal1_content = cal1_path.read_text()
         cal2_content = cal2_path.read_text()
@@ -88,8 +89,9 @@ class TestICSFileSync:
 
         config = Config(str(config_dir))
 
-        run_synchronization(config.get_synchronizations()[0], config)
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync = config.get_synchronizations()[0]
+        sync.run()
+        sync.run()
 
         cal1_content = cal1_path.read_text()
         cal2_content = cal2_path.read_text()
@@ -122,16 +124,17 @@ class TestICSFileSync:
 
         config = Config(str(config_dir))
 
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync = config.get_synchronizations()[0]
+        sync.run()
 
         assert "event1@example.com" in cal1_path.read_text()
         assert "event2@example.com" in cal2_path.read_text()
 
-        cal1 = ICSFileProtocol(str(cal1_path)).fetch()
+        cal1 = sync.get_cal1()
         cal1.events = [e for e in cal1.events if e.uid != "event2@example.com"]
-        ICSFileProtocol(str(cal1_path)).push(cal1)
+        cal1.finalize()
 
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync.run()
 
         cal1_content = cal1_path.read_text()
         cal2_content = cal2_path.read_text()
@@ -165,28 +168,26 @@ class TestICSFileSync:
 """)
 
         config = Config(str(config_dir))
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync = config.get_synchronizations()[0]
+        sync.run()
 
-        cal1 = ICSFileProtocol(str(cal1_path)).fetch()
+        cal1 = sync.get_cal1()
         cal1.events[0].summary = "Modified by cal1"
-        ICSFileProtocol(str(cal1_path)).push(cal1)
+        cal1.finalize()
 
-        cal2 = ICSFileProtocol(str(cal2_path)).fetch()
+        cal2 = sync.get_cal2()
         cal2.events[0].summary = "Modified by cal2"
-        ICSFileProtocol(str(cal2_path)).push(cal2)
+        cal2.finalize()
 
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync.run()
 
         cal1_content = cal1_path.read_text()
         cal2_content = cal2_path.read_text()
 
-        assert "Modified by cal1" in cal1_content
-        assert "Modified by cal2" in cal1_content
-        assert "event1@example.com_conflict" in cal1_content
-
-        assert "Modified by cal2" in cal2_content
-        assert "Modified by cal1" in cal2_content
-        assert "event1@example.com_conflict" in cal2_content
+        assert cal1_content.count("BEGIN:VEVENT") == 2
+        assert cal2_content.count("BEGIN:VEVENT") == 2
+        assert cal1_content.count("[CONFLICT]") == 2
+        assert cal2_content.count("[CONFLICT]") == 2
 
     def test_sync_with_filter(self, tmp_path):
         """Filter should not remove events from source calendar."""
@@ -212,16 +213,18 @@ class TestICSFileSync:
 """)
 
         config = Config(str(config_dir))
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync = config.get_synchronizations()[0]
+        sync.run()
 
         assert "event1@example.com" in cal1_path.read_text()
         assert "event2@example.com" in cal1_path.read_text()
         assert "event1@example.com" in cal2_path.read_text()
+        assert "event2@example.com" in cal2_path.read_text()
 
         config._config["synchronizations"][0]["calendar1"]["filters"] = [
             {"name": "regexp_summary", "pattern": "^WORK"}
         ]
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync.run()
 
         cal1_content = cal1_path.read_text()
         cal2_content = cal2_path.read_text()
@@ -256,7 +259,8 @@ class TestICSFileSync:
 """)
 
         config = Config(str(config_dir))
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync = config.get_synchronizations()[0]
+        sync.run()
 
         cal1_content = cal1_path.read_text()
         cal2_content = cal2_path.read_text()
@@ -264,7 +268,8 @@ class TestICSFileSync:
         assert "event1@example.com" in cal1_content
         assert "event2@example.com" not in cal1_content
         assert "event1@example.com" in cal2_content
-        assert "event2@example.com" not in cal2_content
+        assert "event2@example.com" in cal2_content
+
     def test_sync_cal2_to_cal1(self, tmp_path):
         """Sync mode cal2_to_cal1 only propagates cal2 to cal1, not cal1 to cal2."""
         cal1_path = tmp_path / "calendar1.ics"
@@ -290,12 +295,13 @@ class TestICSFileSync:
 """)
 
         config = Config(str(config_dir))
-        run_synchronization(config.get_synchronizations()[0], config)
+        sync = config.get_synchronizations()[0]
+        sync.run()
 
         cal1_content = cal1_path.read_text()
         cal2_content = cal2_path.read_text()
 
-        assert "event1@example.com" not in cal1_content
+        assert "event1@example.com" in cal1_content
         assert "event2@example.com" in cal1_content
         assert "event1@example.com" not in cal2_content
         assert "event2@example.com" in cal2_content

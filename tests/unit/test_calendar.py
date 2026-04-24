@@ -47,8 +47,9 @@ class TestCalendar:
 
         diff = new_cal.diff(old_cal)
 
-        assert len(diff["added"]) == 1
-        assert diff["added"][0].uid == "1"
+        assert len(diff["changed"]) == 1
+        assert len(diff['removed']) == 0
+        assert diff["changed"][0] == "1"
 
     def test_diff_removed(self):
         """Diff detects removed events (old not in new)."""
@@ -58,10 +59,11 @@ class TestCalendar:
 
         new_cal = Calendar(name="test")
 
-        diff = old_cal.diff(new_cal)
+        diff = new_cal.diff(old_cal)
 
-        assert len(diff["added"]) == 1
-        assert diff["added"][0].uid == "1"
+        assert len(diff["changed"]) == 0
+        assert len(diff['removed']) == 1
+        assert diff["removed"][0] == "1"
 
     def test_diff_modified(self):
         """Diff detects modified events."""
@@ -75,7 +77,8 @@ class TestCalendar:
 
         diff = old_cal.diff(new_cal)
 
-        assert len(diff["modified"]) == 1
+        assert len(diff["changed"]) == 1
+        assert len(diff['removed']) == 0
 
 
 class TestEvent:
@@ -109,10 +112,13 @@ class TestEvent:
         assert "END:VEVENT" in ics
 
     def test_equality(self):
-        """Event equality based on UID."""
-        event1 = CalendarEvent(uid="1", summary="Test", start=datetime.now())
-        event2 = CalendarEvent(uid="1", summary="Different", start=datetime.now())
-        event3 = CalendarEvent(uid="2", summary="Test", start=datetime.now())
+        """Event equality based on all public fields."""
+        start_time = datetime(2026, 4, 23, 10, 0, 0)
+        event1 = CalendarEvent(uid="1", summary="Test", start=start_time)
+        event2 = CalendarEvent(uid="1", summary="Test", start=start_time)
+        event3 = CalendarEvent(uid="1", summary="Different", start=start_time)
+        event4 = CalendarEvent(uid="2", summary="Test", start=start_time)
 
         assert event1 == event2
         assert event1 != event3
+        assert event1 != event4

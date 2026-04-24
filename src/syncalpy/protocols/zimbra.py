@@ -9,7 +9,7 @@ from ..calendar import Calendar
 from ..event import CalendarEvent
 
 
-class ZimbraProtocol:
+class ZimbraProtocol(Calendar):
     """Zimbra protocol for calendar access via REST API."""
 
     def __init__(self, url: str, username: str = "", password: str = ""):
@@ -20,6 +20,7 @@ class ZimbraProtocol:
             username: Username for authentication
             password: Password for authentication
         """
+        super().__init__(name="zimbra", protocol="zimbra")
         self.url = url.rstrip("/")
         self.username = username
         self.password = password
@@ -27,7 +28,10 @@ class ZimbraProtocol:
         if username and password:
             self.session.auth = (username, password)
 
-    def fetch(self) -> Calendar:
+        fetched = self._fetch()
+        self.events = fetched.events
+
+    def _fetch(self) -> Calendar:
         """Fetch calendar from Zimbra server."""
         calendar_url = f"{self.url}/home/{self.username}/calendar"
 
@@ -43,12 +47,16 @@ class ZimbraProtocol:
         except requests.RequestException as e:
             raise RuntimeError(f"Failed to fetch calendar from Zimbra: {e}") from e
 
-    def push(self, calendar: Calendar) -> None:
-        """Push calendar changes to Zimbra server."""
+    def add_event(self, event: CalendarEvent) -> None:
+        """Add an event to the calendar and push to Zimbra server."""
+        super().add_event(event)
+        self._push_event_to_server(event)
+
+    def _push_event_to_server(self, event: CalendarEvent) -> None:
+        """Push a single event to Zimbra server."""
+        ics_content = self._build_ics_event(event)
+
         calendar_url = f"{self.url}/home/{self.username}/calendar"
-
-        ics_content = self._build_ics(calendar)
-
         files = {"file": ("calendar.ics", ics_content, "text/calendar")}
 
         try:
@@ -59,7 +67,29 @@ class ZimbraProtocol:
             )
             response.raise_for_status()
         except requests.RequestException as e:
-            raise RuntimeError(f"Failed to push calendar to Zimbra: {e}") from e
+            raise RuntimeError(f"Failed to push event to Zimbra: {e}") from e
+
+    def remove_event(self, uid: str) -> None:
+        """Remove an event from the calendar and delete from Zimbra server."""
+        super().remove_event(uid)
+        self._remove_event_from_server(uid)
+
+    def _remove_event_from_server(self, uid: str) -> None:
+        """Delete an event from Zimbra server."""
+        calendar_url = f"{self.url}/home/{self.username}/calendar"
+
+        ics_content = self._build_ics_event_for_deletion(uid)
+        files = {"file": ("calendar.ics", ics_content, "text/calendar")}
+
+        try:
+            response = self.session.post(
+                calendar_url,
+                files=files,
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Failed to delete event from Zimbra: {e}") from e
 
     def _parse_ics(self, content: str) -> Calendar:
         """Parse ICS content to Calendar."""
@@ -117,6 +147,27 @@ class ZimbraProtocol:
             raw_ics=vevent,
             source="zimbra",
         )
+
+    def _build_ics_event(self, event: CalendarEvent) -> str:
+        """Build ICS content for a single event."""
+        lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Syncalpy//EN"]
+        lines.append(event.to_ical())
+        lines.append("END:VCALENDAR")
+        return "\r\n".join(lines) + "\r\n"
+
+    def _build_ics_event_for_deletion(self, uid: str) -> str:
+        """Build ICS content for event deletion."""
+        lines = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Syncalpy//EN",
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            "STATUS:CANCELLED",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        return "\r\n".join(lines) + "\r\n"
 
     def _build_ics(self, calendar: Calendar) -> str:
         """Build ICS content from calendar."""

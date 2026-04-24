@@ -10,7 +10,7 @@ from ..calendar import Calendar
 from ..event import CalendarEvent
 
 
-class ICSFileProtocol:
+class ICSFileProtocol(Calendar):
     """Protocol for reading/writing ICS files from local path or HTTP URL."""
 
     def __init__(self, url: str, username: str = "", password: str = ""):
@@ -21,12 +21,16 @@ class ICSFileProtocol:
             username: Not used (for compatibility)
             password: Not used (for compatibility)
         """
+        super().__init__(name="ics", protocol="ics_file")
         self.url = url
         self.username = username
         self.password = password
         self._is_http = url.startswith("http://") or url.startswith("https://")
 
-    def fetch(self) -> Calendar:
+        fetched = self._fetch()
+        self.events = fetched.events
+
+    def _fetch(self) -> Calendar:
         """Fetch calendar from ICS file or HTTP URL."""
         if self._is_http:
             return self._fetch_http()
@@ -36,7 +40,7 @@ class ICSFileProtocol:
     def _fetch_local(self) -> Calendar:
         """Fetch calendar from local file."""
         if not os.path.exists(self.url):
-            raise FileNotFoundError(f"ICS file not found: {self.url}")
+            return Calendar(name="ics", protocol="ics_file")
 
         with open(self.url, "r", encoding="utf-8") as f:
             content = f.read()
@@ -53,12 +57,14 @@ class ICSFileProtocol:
 
         return self._parse_ics(response.text)
 
-    def push(self, calendar: Calendar) -> None:
-        """Push calendar to ICS file."""
+    def finalize(self) -> None:
+        """Finalize the calendar - write events to ICS file."""
+        super().finalize()
+
         if self._is_http:
             raise NotImplementedError("Push to HTTP URL is not supported")
 
-        ics_content = self._build_ics(calendar)
+        ics_content = self._build_ics(self)
 
         os.makedirs(os.path.dirname(self.url) or ".", exist_ok=True)
 
