@@ -142,41 +142,30 @@ class CalendarEvent:
 
 def parse_vevent(vevent: str) -> Optional["CalendarEvent"]:
     """Parse a VEVENT block to CalendarEvent."""
-    uid_match = re.search(r"UID:(.+)", vevent)
-    summary_match = re.search(r"SUMMARY:(.+)", vevent)
-    dtstart_match = re.search(r"DTSTART(?::|;[^:]+:)(.+)", vevent)
-    dtend_match = re.search(r"DTEND(?::|;[^:]+:)(.+)", vevent)
-    desc_match = re.search(r"DESCRIPTION:(.+)", vevent)
-    location_match = re.search(r"LOCATION:(.+)", vevent)
+    from icalendar import Calendar
 
-    if not uid_match:
+    try:
+        cal = Calendar.from_ical(vevent)
+    except Exception:
         return None
 
-    uid = uid_match.group(1).strip()
-    summary = summary_match.group(1).strip() if summary_match else ""
+    component = cal.walk()
+    if not component:
+        return None
 
-    start = None
-    if dtstart_match:
-        try:
-            start = date_parser.parse(dtstart_match.group(1).strip())
-        except ValueError:
-            pass
+    component = component[0]
+    uid = component.get("uid")
+    if not uid:
+        return None
 
-    end = None
-    if dtend_match:
-        try:
-            end = date_parser.parse(dtend_match.group(1).strip())
-        except ValueError:
-            pass
-
-    description = desc_match.group(1).strip() if desc_match else None
-    location = location_match.group(1).strip() if location_match else None
+    dtstart = component.get("dtstart")
+    dtend = component.get("dtend")
 
     return CalendarEvent(
-        uid=uid,
-        summary=summary,
-        start=start,
-        end=end,
-        description=description,
-        location=location,
+        uid=str(uid),
+        summary=str(component.get("summary", "")),
+        start=dtstart.dt if hasattr(dtstart, 'dt') else None,
+        end=dtend.dt if hasattr(dtend, 'dt') else None,
+        description=str(component.get("description")) if component.get("description") else None,
+        location=str(component.get("location")) if component.get("location") else None,
     )
