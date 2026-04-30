@@ -20,8 +20,9 @@ class FutureOnlyFilter:
         """Filter events to keep only future ones."""
         result = []
         for event in events:
-            if event.start and event.start > self.reference_time:
+            start = event.DTSTART
+            if start and start > self.reference_time:
                 result.append(event)
-            elif event.start is None:
+            elif start is None:
                 result.append(event)
         return result

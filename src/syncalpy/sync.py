@@ -171,10 +171,8 @@ class Synchronization:
 
     @staticmethod
     def _conflict(base, event1, event2):
-        fields = ["summary", "start", "end", "description", "location"]
-
         if event1 == event2:
-            # Added or modified on both side, but the same way
+            # Added or modified on both sides, but the same way
             # We return one to update ref
             return [event1]
 
@@ -184,8 +182,11 @@ class Synchronization:
             event2.conflict()
             return [event1, event2]
 
-        changed1 = [f for f in fields if getattr(event1, f) != getattr(base, f)]
-        changed2 = [f for f in fields if getattr(event2, f) != getattr(base, f)]
+        all_keys = set(event1.keys()) | set(event2.keys()) | set(base.keys())
+        fields = [k for k in all_keys if k not in CalendarEvent.ignore_keys_eq]
+
+        changed1 = [f for f in fields if event1.get(f) != base.get(f)]
+        changed2 = [f for f in fields if event2.get(f) != base.get(f)]
 
         if not changed1 or not changed2 or set(changed1) & set(changed2):
             event2.set_uid()
@@ -194,7 +195,7 @@ class Synchronization:
             return [event1, event2]
 
         for field in changed2:
-            setattr(event1, field, getattr(event2, field))
+            event1[field] = event2.get(field)
         return [event1]
 
     def run(self) -> None:

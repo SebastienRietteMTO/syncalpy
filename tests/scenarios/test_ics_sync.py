@@ -2,26 +2,39 @@
 
 import shutil
 import pytest
+from datetime import datetime, timedelta
+from icalendar import Event
 from syncalpy.calendar import Calendar
 from syncalpy.config import Config
 from syncalpy.protocols.ics_file import ICSFileProtocol
 from syncalpy.sync import Synchronization
 
 
-def create_ics_file(path: str, uid: str, summary: str, date: str, location: str = ""):
+# Define datetime objects for tests
+DATE_1 = datetime(2026, 4, 21, 14, 0, 0)  # 2026-04-21 14:00:00
+DATE_2 = datetime(2026, 4, 22, 12, 0, 0)  # 2026-04-22 12:00:00
+
+
+def create_ics_file(path: str, uid: str, summary: str, date: datetime, location: str = "") -> None:
     """Create a simple ICS file."""
-    location_line = f"LOCATION:{location}\n" if location else ""
+    # Create event using Event.new() and convert to ICS
+    event = Event.new(
+        uid=uid,
+        summary=summary,
+        start=date,
+        end=date + timedelta(hours=1),
+        location=location if location else None,
+    )
+
+    ics_content = event.to_ical().decode('utf-8')
+
+    # Wrap in VCALENDAR
     content = f"""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Syncalpy//EN
-BEGIN:VEVENT
-UID:{uid}
-SUMMARY:{summary}
-DTSTART:{date}
-DTEND:{date}
-{location_line}END:VEVENT
-END:VCALENDAR
+{ics_content}END:VCALENDAR
 """
+
     with open(path, "w") as f:
         f.write(content)
 
@@ -34,8 +47,8 @@ class TestICSFileSync:
         cal1_path = tmp_path / "calendar1.ics"
         cal2_path = tmp_path / "calendar2.ics"
 
-        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", "20260421T140000")
-        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", "20260422T120000")
+        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", DATE_1)
+        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", DATE_2)
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -69,8 +82,8 @@ class TestICSFileSync:
         cal1_path = tmp_path / "calendar1.ics"
         cal2_path = tmp_path / "calendar2.ics"
 
-        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", "20260421T140000")
-        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", "20260422T120000")
+        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", DATE_1)
+        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", DATE_2)
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -104,8 +117,8 @@ class TestICSFileSync:
         cal1_path = tmp_path / "calendar1.ics"
         cal2_path = tmp_path / "calendar2.ics"
 
-        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", "20260421T140000", "Room A")
-        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", "20260422T120000", "Restaurant")
+        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", DATE_1, "Room A")
+        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", DATE_2, "Restaurant")
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -149,8 +162,8 @@ class TestICSFileSync:
         cal1_path = tmp_path / "calendar1.ics"
         cal2_path = tmp_path / "calendar2.ics"
 
-        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", "20260421T140000", "Room A")
-        create_ics_file(str(cal2_path), "event1@example.com", "Meeting", "20260421T140000", "Room A")
+        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", DATE_1, "Room A")
+        create_ics_file(str(cal2_path), "event1@example.com", "Meeting", DATE_1, "Room A")
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -194,8 +207,8 @@ class TestICSFileSync:
         cal1_path = tmp_path / "calendar1.ics"
         cal2_path = tmp_path / "calendar2.ics"
 
-        create_ics_file(str(cal1_path), "event1@example.com", "WORK Meeting", "20260421T140000")
-        create_ics_file(str(cal2_path), "event2@example.com", "PRIVATE Lunch", "20260422T120000")
+        create_ics_file(str(cal1_path), "event1@example.com", "WORK Meeting", DATE_1)
+        create_ics_file(str(cal2_path), "event2@example.com", "PRIVATE Lunch", DATE_2)
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -239,8 +252,8 @@ class TestICSFileSync:
         cal1_path = tmp_path / "calendar1.ics"
         cal2_path = tmp_path / "calendar2.ics"
 
-        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", "20260421T140000")
-        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", "20260422T120000")
+        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", DATE_1)
+        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", DATE_2)
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()
@@ -275,8 +288,8 @@ class TestICSFileSync:
         cal1_path = tmp_path / "calendar1.ics"
         cal2_path = tmp_path / "calendar2.ics"
 
-        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", "20260421T140000")
-        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", "20260422T120000")
+        create_ics_file(str(cal1_path), "event1@example.com", "Meeting", DATE_1)
+        create_ics_file(str(cal2_path), "event2@example.com", "Lunch", DATE_2)
 
         config_dir = tmp_path / "config"
         config_dir.mkdir()

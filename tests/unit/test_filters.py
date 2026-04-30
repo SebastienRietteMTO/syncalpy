@@ -7,23 +7,22 @@ from syncalpy.filters.future_only import FutureOnlyFilter
 from syncalpy.filters.regexp import RegexpSummaryFilter, RegexpDescriptionFilter, RegexpLocationFilter
 
 
-def make_event(uid, summary, days_from_now=0):
-    """Helper to create test events."""
-    return CalendarEvent(
-        uid=uid,
-        summary=summary,
-        start=datetime.now() + timedelta(days=days_from_now),
-    )
-
-
 class TestFutureOnlyFilter:
     """Tests for FutureOnlyFilter."""
 
     def test_filter_future_events(self):
         """Keep only future events."""
         events = [
-            make_event("1", "Future", 7),
-            make_event("2", "Past", -7),
+            CalendarEvent.create({
+                "uid": "1",
+                "summary": "Future",
+                "start": datetime.now() + timedelta(days=7),
+            }),
+            CalendarEvent.create({
+                "uid": "2",
+                "summary": "Past",
+                "start": datetime.now() + timedelta(days=-7),
+            }),
         ]
 
         filter_obj = FutureOnlyFilter(reference_time=datetime.now())
@@ -35,7 +34,7 @@ class TestFutureOnlyFilter:
     def test_filter_no_start_date(self):
         """Keep events without start date."""
         events = [
-            CalendarEvent(uid="1", summary="No date", start=None),
+            CalendarEvent.create({"uid": "1", "summary": "No date", "start": None}),
         ]
 
         filter_obj = FutureOnlyFilter(reference_time=datetime.now())
@@ -46,7 +45,11 @@ class TestFutureOnlyFilter:
     def test_filter_all_past(self):
         """Return empty when all events are past."""
         events = [
-            make_event("1", "Past", -7),
+            CalendarEvent.create({
+                "uid": "1",
+                "summary": "Past",
+                "start": datetime.now() + timedelta(days=-7),
+            }),
         ]
 
         filter_obj = FutureOnlyFilter(reference_time=datetime.now())
@@ -61,8 +64,16 @@ class TestRegexpSummaryFilter:
     def test_filter_by_summary(self):
         """Filter by summary field."""
         events = [
-            make_event("1", "Meeting with team", 1),
-            make_event("2", "Lunch with friend", 1),
+            CalendarEvent.create({
+                "uid": "1",
+                "summary": "Meeting with team",
+                "start": datetime.now() + timedelta(days=1),
+            }),
+            CalendarEvent.create({
+                "uid": "2",
+                "summary": "Lunch with friend",
+                "start": datetime.now() + timedelta(days=1),
+            }),
         ]
 
         filter_obj = RegexpSummaryFilter(pattern="meeting")
@@ -74,7 +85,11 @@ class TestRegexpSummaryFilter:
     def test_filter_no_match(self):
         """Return empty when no match."""
         events = [
-            make_event("1", "Meeting", 1),
+            CalendarEvent.create({
+                "uid": "1",
+                "summary": "Meeting",
+                "start": datetime.now() + timedelta(days=1),
+            }),
         ]
 
         filter_obj = RegexpSummaryFilter(pattern="lunch")
@@ -85,8 +100,16 @@ class TestRegexpSummaryFilter:
     def test_filter_case_insensitive(self):
         """Case insensitive matching."""
         events = [
-            make_event("1", "MEETING", 1),
-            make_event("2", "meeting", 1),
+            CalendarEvent.create({
+                "uid": "1",
+                "summary": "MEETING",
+                "start": datetime.now() + timedelta(days=1),
+            }),
+            CalendarEvent.create({
+                "uid": "2",
+                "summary": "meeting",
+                "start": datetime.now() + timedelta(days=1),
+            }),
         ]
 
         filter_obj = RegexpSummaryFilter(pattern="meeting")
@@ -101,8 +124,8 @@ class TestRegexpDescriptionFilter:
     def test_filter_by_description(self):
         """Filter by description field."""
         events = [
-            CalendarEvent(uid="1", summary="Event 1", description="Important meeting", start=datetime.now()),
-            CalendarEvent(uid="2", summary="Event 2", description="Casual lunch", start=datetime.now()),
+            CalendarEvent.create({"uid": "1", "summary": "Event 1", "description": "Important meeting", "start": datetime.now()}),
+            CalendarEvent.create({"uid": "2", "summary": "Event 2", "description": "Casual lunch", "start": datetime.now()}),
         ]
 
         filter_obj = RegexpDescriptionFilter(pattern="meeting")
@@ -118,8 +141,8 @@ class TestRegexpLocationFilter:
     def test_filter_by_location(self):
         """Filter by location field."""
         events = [
-            CalendarEvent(uid="1", summary="Event 1", location="Conference Room A", start=datetime.now()),
-            CalendarEvent(uid="2", summary="Event 2", location="Cafeteria", start=datetime.now()),
+            CalendarEvent.create({"uid": "1", "summary": "Event 1", "location": "Conference Room A", "start": datetime.now()}),
+            CalendarEvent.create({"uid": "2", "summary": "Event 2", "location": "Cafeteria", "start": datetime.now()}),
         ]
 
         filter_obj = RegexpLocationFilter(pattern="conference")

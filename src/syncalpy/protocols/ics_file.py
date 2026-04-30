@@ -1,13 +1,9 @@
 """ICS file protocol for local calendar files and HTTP URLs."""
 
 import os
-import re
-from typing import Optional
 
 import requests
-from dateutil import parser as date_parser
 from ..calendar import Calendar
-from ..event import CalendarEvent, parse_vevent
 
 
 class ICSFileProtocol(Calendar):
@@ -27,27 +23,24 @@ class ICSFileProtocol(Calendar):
         self.password = password
         self._is_http = url.startswith("http://") or url.startswith("https://")
 
-        fetched = self._fetch()
-        self.events = fetched.events
+        self._fetch()
 
-    def _fetch(self) -> Calendar:
+    def _fetch(self) -> None:
         """Fetch calendar from ICS file or HTTP URL."""
         if self._is_http:
-            return self._fetch_http()
+            self._fetch_http()
         else:
-            return self._fetch_local()
+            self._fetch_local()
 
-    def _fetch_local(self) -> Calendar:
+    def _fetch_local(self) -> None:
         """Fetch calendar from local file."""
-        if not os.path.exists(self.url):
-            return Calendar()
+        if os.path.exists(self.url):
+            with open(self.url, "r", encoding="utf-8") as f:
+                content = f.read()
 
-        with open(self.url, "r", encoding="utf-8") as f:
-            content = f.read()
+            self.from_ical(content)
 
-        return self._parse_ics(content)
-
-    def _fetch_http(self) -> Calendar:
+    def _fetch_http(self) -> None:
         """Fetch calendar from HTTP URL."""
         try:
             response = requests.get(self.url, timeout=30)
@@ -55,7 +48,7 @@ class ICSFileProtocol(Calendar):
         except requests.RequestException as e:
             raise RuntimeError(f"Failed to fetch ICS from {self.url}: {e}")
 
-        return self._parse_ics(response.text)
+        self.from_ical(response.text)
 
     def finalize(self) -> None:
         """Finalize the calendar - write events to ICS file."""
@@ -64,37 +57,7 @@ class ICSFileProtocol(Calendar):
         if self._is_http:
             raise NotImplementedError("Push to HTTP URL is not supported")
 
-        ics_content = self._build_ics(self)
-
         os.makedirs(os.path.dirname(self.url) or ".", exist_ok=True)
 
         with open(self.url, "w", encoding="utf-8") as f:
-            f.write(ics_content)
-
-    def _parse_ics(self, content: str) -> Calendar:
-        """Parse ICS content to Calendar."""
-        calendar = Calendar()
-
-        pattern = r"BEGIN:VEVENT.*?END:VEVENT"
-        matches = re.findall(pattern, content, re.DOTALL)
-
-        for vevent in matches:
-            event = self._parse_vevent(vevent)
-            if event:
-                calendar.add_event(event)
-
-        return calendar
-
-    def _parse_vevent(self, vevent: str) -> Optional[CalendarEvent]:
-        """Parse a VEVENT block to CalendarEvent."""
-        return parse_vevent(vevent)
-
-    def _build_ics(self, calendar: Calendar) -> str:
-        """Build ICS content from calendar."""
-        lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Syncalpy//EN"]
-
-        for event in calendar.events:
-            lines.append(event.to_ical())
-
-        lines.append("END:VCALENDAR")
-        return "\r\n".join(lines) + "\r\n"
+            f.write(self.to_ical())

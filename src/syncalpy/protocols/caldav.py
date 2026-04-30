@@ -29,19 +29,15 @@ class CalDAVProtocol(Calendar):
             password=password,
         ).calendar(url=url)
 
-        fetched = self._fetch()
-        self.events = fetched.events
+        self._fetch()
 
-    def _fetch(self) -> Calendar:
+    def _fetch(self) -> None:
         """Fetch calendar from CalDAV server."""
         try:
-            result = Calendar()
             for event in self.client.events():
-                cal_event = self._parse_event(event)
-                if cal_event:
-                    result.add_event(cal_event)
-
-            return result
+                cal_event = CalendarEvent()
+                cal_event.update(event.icalendar_component)
+                self.events.append(cal_event)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch calendar from CalDAV: {e}") from e
 
@@ -49,7 +45,7 @@ class CalDAVProtocol(Calendar):
         """Add an event to the calendar and push to CalDAV server."""
         super().add_event(event)
 
-        ics_data = self._build_ics_event(event)
+        ics_data = event.to_ical()
 
         try:
             self.client.save_event(ics_data)
@@ -70,41 +66,3 @@ class CalDAVProtocol(Calendar):
                 event_obj.delete()
         except Exception as e:
             raise RuntimeError(f"Failed to delete event {uid} from CalDAV: {e}") from e
-
-    def _parse_event(self, event) -> Optional[CalendarEvent]:
-        """Parse caldav event to CalendarEvent."""
-        try:
-            ical_component = event.icalendar_component
-
-            uid = str(ical_component.get("uid", ""))
-            if not uid:
-                return None
-
-            summary = str(ical_component.get("summary", ""))
-
-            dtstart = ical_component.get("dtstart")
-            start = dtstart.dt if dtstart else None
-
-            dtend = ical_component.get("dtend")
-            end = dtend.dt if dtend else None
-
-            description = ical_component.get("description")
-            description = str(description) if description else None
-
-            location = ical_component.get("location")
-            location = str(location) if location else None
-
-            return CalendarEvent(
-                uid=uid,
-                summary=summary,
-                start=start,
-                end=end,
-                description=description,
-                location=location,
-            )
-        except Exception:
-            return None
-
-    def _build_ics_event(self, event: CalendarEvent) -> str:
-        """Build ICS data for a single event."""
-        return event.to_ical()

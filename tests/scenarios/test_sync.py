@@ -11,17 +11,6 @@ from syncalpy.event import CalendarEvent
 from syncalpy.sync import Synchronization
 
 
-def create_event(uid, summary, days_from_now=0, description=""):
-    """Helper to create test events."""
-    return CalendarEvent(
-        uid=uid,
-        summary=summary,
-        start=datetime.now() + timedelta(days=days_from_now),
-        end=datetime.now() + timedelta(days=days_from_now, hours=1),
-        description=description,
-    )
-
-
 def synchronize_calendars(prev_cal, curr_cal1, curr_cal2, sync_mode="bidirectional", filters1=None, filters2=None):
     """Synchronize two calendars using Synchronization.synchronize."""
     cal1 = copy.deepcopy(curr_cal1)
@@ -45,7 +34,12 @@ class TestSyncConflictResolution:
 
     def test_no_changes(self):
         """No changes - calendars identical."""
-        event = create_event("1", "Event", 1)
+        event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         cal1 = Calendar(events=[event])
         cal2 = Calendar(events=[event])
         prev_cal = Calendar(events=[event])
@@ -60,7 +54,12 @@ class TestSyncConflictResolution:
         """Add event to calendar 1 propagates to calendar 2."""
         prev_cal = Calendar(events=[])
 
-        event = create_event("1", "New Event", 1)
+        event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "New Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         curr_cal1 = Calendar(events=[event])
         curr_cal2 = Calendar(events=[])
 
@@ -77,7 +76,12 @@ class TestSyncConflictResolution:
         """Add event to calendar 2 propagates to calendar 1."""
         prev_cal = Calendar(events=[])
 
-        event = create_event("1", "New Event", 1)
+        event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "New Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         curr_cal1 = Calendar(events=[])
         curr_cal2 = Calendar(events=[event])
 
@@ -92,7 +96,12 @@ class TestSyncConflictResolution:
 
     def test_delete_event_from_cal1(self):
         """Delete event from calendar 1 propagates to calendar 2."""
-        event = create_event("1", "Event", 1)
+        event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         prev_cal = Calendar(events=[event])
 
         curr_cal1 = Calendar(events=[])
@@ -108,7 +117,12 @@ class TestSyncConflictResolution:
 
     def test_delete_event_from_cal2(self):
         """Delete event from calendar 2 propagates to calendar 1."""
-        event = create_event("1", "Event", 1)
+        event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         prev_cal = Calendar(events=[event])
 
         curr_cal1 = Calendar(events=[event])
@@ -124,13 +138,16 @@ class TestSyncConflictResolution:
 
     def test_conflict_delete_cal1_modify_cal2(self):
         """Conflict: delete from cal1, modify in cal2."""
-        old_event = create_event("1", "Event", 1)
+        old_event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         prev_cal = Calendar(events=[old_event])
 
         curr_cal1 = Calendar(events=[])
-        event2 = CalendarEvent(
-            uid="1", summary="Modified", start=old_event.start, end=old_event.end
-        )
+        event2 = CalendarEvent.create({"uid": "1", "summary": "Modified", "start": old_event.DTSTART, "end": old_event.DTEND})
         curr_cal2 = Calendar(events=[event2])
 
         updated1, updated2 = synchronize_calendars(
@@ -143,12 +160,15 @@ class TestSyncConflictResolution:
 
     def test_conflict_modify_cal1_delete_cal2(self):
         """Conflict: modify in cal1, delete from cal2."""
-        old_event = create_event("1", "Event", 1)
+        old_event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         prev_cal = Calendar(events=[old_event])
 
-        event1 = CalendarEvent(
-            uid="1", summary="Modified", start=old_event.start, end=old_event.end
-        )
+        event1 = CalendarEvent.create({"uid": "1", "summary": "Modified", "start": old_event.DTSTART, "end": old_event.DTEND})
         curr_cal1 = Calendar(events=[event1])
         curr_cal2 = Calendar(events=[])
 
@@ -162,15 +182,16 @@ class TestSyncConflictResolution:
 
     def test_conflict_modify_both_titles(self):
         """Conflict: modify title on both sides - create conflict event."""
-        old_event = create_event("1", "Original", 1)
+        old_event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Original",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         prev_cal = Calendar(events=[old_event])
 
-        event1 = CalendarEvent(
-            uid="1", summary="Modified by cal1", start=old_event.start, end=old_event.end
-        )
-        event2 = CalendarEvent(
-            uid="1", summary="Modified by cal2", start=old_event.start, end=old_event.end
-        )
+        event1 = CalendarEvent.create({"uid": "1", "summary": "Modified by cal1", "start": old_event.DTSTART, "end": old_event.DTEND})
+        event2 = CalendarEvent.create({"uid": "1", "summary": "Modified by cal2", "start": old_event.DTSTART, "end": old_event.DTEND})
         curr_cal1 = Calendar(events=[event1])
         curr_cal2 = Calendar(events=[event2])
 
@@ -186,19 +207,20 @@ class TestSyncConflictResolution:
 
     def test_conflict_modify_both_dates(self):
         """Conflict: modify dates on both sides - create conflict event."""
-        old_event = create_event("1", "Event", 1)
+        old_event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         prev_cal = Calendar(events=[old_event])
 
-        event1 = CalendarEvent(
-            uid="1", summary="Event",
-            start=datetime.now() + timedelta(days=2),
-            end=datetime.now() + timedelta(days=2, hours=1)
-        )
-        event2 = CalendarEvent(
-            uid="1", summary="Event",
-            start=datetime.now() + timedelta(days=3),
-            end=datetime.now() + timedelta(days=3, hours=1)
-        )
+        event1 = CalendarEvent.create({"uid": "1", "summary": "Event",
+            "start": datetime.now() + timedelta(days=2),
+            "end": datetime.now() + timedelta(days=2, hours=1)})
+        event2 = CalendarEvent.create({"uid": "1", "summary": "Event",
+            "start": datetime.now() + timedelta(days=3),
+            "end": datetime.now() + timedelta(days=3, hours=1)})
         curr_cal1 = Calendar(events=[event1])
         curr_cal2 = Calendar(events=[event2])
 
@@ -214,24 +236,18 @@ class TestSyncConflictResolution:
 
     def test_conflict_modify_both_descriptions(self):
         """Conflict: modify description on both sides - create conflict event."""
-        old_event = CalendarEvent(
-            uid="1", summary="Event",
-            start=datetime.now() + timedelta(days=1),
-            end=datetime.now() + timedelta(days=1, hours=1),
-            description="Original"
-        )
+        old_event = CalendarEvent.create({"uid": "1", "summary": "Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+            "description": "Original"})
         prev_cal = Calendar(events=[old_event])
 
-        event1 = CalendarEvent(
-            uid="1", summary="Event",
-            start=old_event.start, end=old_event.end,
-            description="Description from cal1"
-        )
-        event2 = CalendarEvent(
-            uid="1", summary="Event",
-            start=old_event.start, end=old_event.end,
-            description="Description from cal2"
-        )
+        event1 = CalendarEvent.create({"uid": "1", "summary": "Event",
+            "start": old_event.DTSTART, "end": old_event.DTEND,
+            "description": "Description from cal1"})
+        event2 = CalendarEvent.create({"uid": "1", "summary": "Event",
+            "start": old_event.DTSTART, "end": old_event.DTEND,
+            "description": "Description from cal2"})
         curr_cal1 = Calendar(events=[event1])
         curr_cal2 = Calendar(events=[event2])
 
@@ -247,12 +263,27 @@ class TestSyncConflictResolution:
     def test_sync_multiple_events(self):
         """Multiple events sync correctly."""
         events_prev = [
-            create_event("1", "Event 1", 1),
-            create_event("2", "Event 2", 2),
+            CalendarEvent.create({
+                "uid": "1",
+                "summary": "Event 1",
+                "start": datetime.now() + timedelta(days=1),
+                "end": datetime.now() + timedelta(days=1, hours=1),
+            }),
+            CalendarEvent.create({
+                "uid": "2",
+                "summary": "Event 2",
+                "start": datetime.now() + timedelta(days=2),
+                "end": datetime.now() + timedelta(days=2, hours=1),
+            }),
         ]
         prev_cal = Calendar(events=list(events_prev))
 
-        event_new = create_event("3", "Event 3", 3)
+        event_new = CalendarEvent.create({
+            "uid": "3",
+            "summary": "Event 3",
+            "start": datetime.now() + timedelta(days=3),
+            "end": datetime.now() + timedelta(days=3, hours=1),
+        })
         curr_cal1 = Calendar(events=events_prev + [event_new])
         curr_cal2 = Calendar(events=events_prev)
 
@@ -265,8 +296,18 @@ class TestSyncConflictResolution:
 
     def test_bidirectional_sync(self):
         """Bidirectional sync works both ways."""
-        event1 = create_event("1", "Event in cal1", 1)
-        event2 = create_event("2", "Event in cal2", 2)
+        event1 = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Event in cal1",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
+        event2 = CalendarEvent.create({
+            "uid": "2",
+            "summary": "Event in cal2",
+            "start": datetime.now() + timedelta(days=2),
+            "end": datetime.now() + timedelta(days=2, hours=1),
+        })
         prev_cal = Calendar(events=[])
 
         curr_cal1 = Calendar(events=[event1])
@@ -282,17 +323,18 @@ class TestSyncConflictResolution:
 
     def test_complex_conflict_all_changed(self):
         """Complex scenario where both calendars changed all events."""
-        base_event = create_event("1", "Base", 1)
+        base_event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Base",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
         prev_cal = Calendar(events=[base_event])
 
-        mod1 = CalendarEvent(
-            uid="1", summary="Modified by cal1",
-            start=base_event.start, end=base_event.end
-        )
-        mod2 = CalendarEvent(
-            uid="1", summary="Modified by cal2",
-            start=base_event.start, end=base_event.end
-        )
+        mod1 = CalendarEvent.create({"uid": "1", "summary": "Modified by cal1",
+            "start": base_event.DTSTART, "end": base_event.DTEND})
+        mod2 = CalendarEvent.create({"uid": "1", "summary": "Modified by cal2",
+            "start": base_event.DTSTART, "end": base_event.DTEND})
         curr_cal1 = Calendar(events=[mod1])
         curr_cal2 = Calendar(events=[mod2])
 
@@ -306,19 +348,21 @@ class TestSyncConflictResolution:
 
     def test_conflict_modify_separate_fields(self):
         """Conflict: modify different fields on each side - merge into single event."""
-        base_event = create_event("1", "Base", 1, description="")
+        base_event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Base",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+            "description": "",
+        })
         prev_cal = Calendar(events=[base_event])
 
-        event1 = CalendarEvent(
-            uid="1", summary="New Summary",
-            start=base_event.start, end=base_event.end,
-            description=""
-        )
-        event2 = CalendarEvent(
-            uid="1", summary="Base",
-            start=base_event.start, end=base_event.end,
-            description="", location="Office"
-        )
+        event1 = CalendarEvent.create({"uid": "1", "summary": "New Summary",
+            "start": base_event.DTSTART, "end": base_event.DTEND,
+            "description": ""})
+        event2 = CalendarEvent.create({"uid": "1", "summary": "Base",
+            "start": base_event.DTSTART, "end": base_event.DTEND,
+            "description": "", "location": "Office"})
         curr_cal1 = Calendar(events=[event1])
         curr_cal2 = Calendar(events=[event2])
 
@@ -341,8 +385,18 @@ class TestSyncWithFilters:
         """Sync with future filter works."""
         from syncalpy.filters.future_only import FutureOnlyFilter
 
-        past_event = create_event("1", "Past Event", -1)
-        future_event = create_event("2", "Future Event", 1)
+        past_event = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Past Event",
+            "start": datetime.now() + timedelta(days=-1),
+            "end": datetime.now() + timedelta(days=-1, hours=1),
+        })
+        future_event = CalendarEvent.create({
+            "uid": "2",
+            "summary": "Future Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
 
         prev_cal = Calendar(events=[])
 
@@ -361,8 +415,18 @@ class TestSyncWithFilters:
 
     def test_sync_with_regexp_filter(self):
         """Sync respects regexp_summary filter."""
-        event1 = create_event("1", "WORK Meeting", 1)
-        event2 = create_event("2", "PRIVATE Lunch", 2)
+        event1 = CalendarEvent.create({
+            "uid": "1",
+            "summary": "WORK Meeting",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
+        event2 = CalendarEvent.create({
+            "uid": "2",
+            "summary": "PRIVATE Lunch",
+            "start": datetime.now() + timedelta(days=2),
+            "end": datetime.now() + timedelta(days=2, hours=1),
+        })
 
         prev_cal = Calendar(events=[])
 
@@ -398,12 +462,10 @@ class TestEdgeCases:
 
     def test_events_without_uid(self):
         """Events without UID are handled - set_missing_uids generates UID."""
-        event = CalendarEvent(
-            uid="",
-            summary="Event without UID",
-            start=datetime.now() + timedelta(days=1),
-            end=datetime.now() + timedelta(days=1, hours=1),
-        )
+        event = CalendarEvent.create({"uid": "",
+            "summary": "Event without UID",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1)})
         prev_cal = Calendar(events=[])
 
         curr_cal1 = Calendar(events=[event])
@@ -418,8 +480,18 @@ class TestEdgeCases:
 
     def test_preserve_existing_events(self):
         """Existing events are preserved during sync."""
-        event1 = create_event("1", "Existing Event", 1)
-        event2 = create_event("2", "New Event", 2)
+        event1 = CalendarEvent.create({
+            "uid": "1",
+            "summary": "Existing Event",
+            "start": datetime.now() + timedelta(days=1),
+            "end": datetime.now() + timedelta(days=1, hours=1),
+        })
+        event2 = CalendarEvent.create({
+            "uid": "2",
+            "summary": "New Event",
+            "start": datetime.now() + timedelta(days=2),
+            "end": datetime.now() + timedelta(days=2, hours=1),
+        })
 
         prev_cal = Calendar(events=[event1])
 

@@ -12,7 +12,7 @@ class TestCalendar:
     def test_add_event(self):
         """Add event to calendar."""
         calendar = Calendar()
-        event = CalendarEvent(uid="1", summary="Test", start=datetime.now())
+        event = CalendarEvent.create({"uid": "1", "summary": "Test", "start": datetime.now()})
 
         calendar.add_event(event)
 
@@ -22,7 +22,7 @@ class TestCalendar:
     def test_remove_event(self):
         """Remove event from calendar."""
         calendar = Calendar()
-        event = CalendarEvent(uid="1", summary="Test", start=datetime.now())
+        event = CalendarEvent.create({"uid": "1", "summary": "Test", "start": datetime.now()})
         calendar.add_event(event)
 
         result = calendar.remove_event("1")
@@ -42,7 +42,7 @@ class TestCalendar:
         """Diff detects added events in self not in other."""
         old_cal = Calendar()
         new_cal = Calendar()
-        new_event = CalendarEvent(uid="1", summary="New", start=datetime.now())
+        new_event = CalendarEvent.create({"uid": "1", "summary": "New", "start": datetime.now()})
         new_cal.add_event(new_event)
 
         diff = new_cal.diff(old_cal)
@@ -54,7 +54,7 @@ class TestCalendar:
     def test_diff_removed(self):
         """Diff detects removed events (old not in new)."""
         old_cal = Calendar()
-        old_event = CalendarEvent(uid="1", summary="Old", start=datetime.now())
+        old_event = CalendarEvent.create({"uid": "1", "summary": "Old", "start": datetime.now()})
         old_cal.add_event(old_event)
 
         new_cal = Calendar()
@@ -68,11 +68,11 @@ class TestCalendar:
     def test_diff_modified(self):
         """Diff detects modified events."""
         old_cal = Calendar()
-        old_event = CalendarEvent(uid="1", summary="Old", start=datetime.now())
+        old_event = CalendarEvent.create({"uid": "1", "summary": "Old", "start": datetime.now()})
         old_cal.add_event(old_event)
 
         new_cal = Calendar()
-        new_event = CalendarEvent(uid="1", summary="New", start=datetime.now())
+        new_event = CalendarEvent.create({"uid": "1", "summary": "New", "start": datetime.now()})
         new_cal.add_event(new_event)
 
         diff = old_cal.diff(new_cal)
@@ -84,23 +84,16 @@ class TestCalendar:
 class TestEvent:
     """Tests for CalendarEvent model."""
 
-    def test_generate_uid(self):
-        """Generate unique ID."""
-        uid1 = CalendarEvent.generate_uid()
-        uid2 = CalendarEvent.generate_uid()
-
-        assert uid1 != uid2
-
     def test_to_ical(self):
         """Convert event to ICS format."""
-        event = CalendarEvent(
-            uid="test-123",
-            summary="Test Event",
-            start=datetime(2024, 1, 15, 10, 0, 0),
-            end=datetime(2024, 1, 15, 11, 0, 0),
-            description="Description",
-            location="Location",
-        )
+        event = CalendarEvent.create({
+            "uid": "test-123",
+            "summary": "Test Event",
+            "start": datetime(2024, 1, 15, 10, 0, 0),
+            "end": datetime(2024, 1, 15, 11, 0, 0),
+            "description": "Description",
+            "location": "Location",
+        })
 
         ics = event.to_ical()
 
@@ -113,11 +106,12 @@ class TestEvent:
 
     def test_equality(self):
         """Event equality based on all public fields."""
+        now = datetime.now()
         start_time = datetime(2026, 4, 23, 10, 0, 0)
-        event1 = CalendarEvent(uid="1", summary="Test", start=start_time)
-        event2 = CalendarEvent(uid="1", summary="Test", start=start_time)
-        event3 = CalendarEvent(uid="1", summary="Different", start=start_time)
-        event4 = CalendarEvent(uid="2", summary="Test", start=start_time)
+        event1 = CalendarEvent.create({"uid": "1", "summary": "Test", "start": start_time})
+        event2 = CalendarEvent.create({"uid": "1", "summary": "Test", "start": start_time})
+        event3 = CalendarEvent.create({"uid": "1", "summary": "Different", "start": start_time})
+        event4 = CalendarEvent.create({"uid": "2", "summary": "Test", "start": start_time})
 
         assert event1 == event2
         assert event1 != event3

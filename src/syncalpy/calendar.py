@@ -1,16 +1,55 @@
 """Calendar model."""
 
-from dataclasses import dataclass, field
+from icalendar import Calendar as ICalendar
 from typing import List, Optional
 from .event import CalendarEvent
-from .filters import get_filter 
+from .filters import get_filter
 
 
-@dataclass
 class Calendar:
     """Represents a calendar with events."""
 
-    events: List[CalendarEvent] = field(default_factory=list)
+    def __init__(self, events: Optional[List[CalendarEvent]] = None, vcalendar: Optional[str] = None):
+        """Initialize calendar.
+
+        Args:
+            events: Optional list of CalendarEvent objects
+            vcalendar: Optional ICS content string to parse events from
+        """
+        self.events: List[CalendarEvent] = []
+
+        if events is not None and vcalendar is not None:
+            raise ValueError("Cannot pass both events and vcalendar")
+
+        if events is not None:
+            self.events = events
+
+        if vcalendar is not None:
+            self.from_ical(vcalendar)
+
+    def from_ical(self, vcalendar: str) -> None:
+        """Parse ICS content string and populate events.
+
+        Args:
+            vcalendar: ICS content string to parse
+        """
+        cal = ICalendar.from_ical(vcalendar.encode('utf-8'))
+        for component in cal.walk():
+            if component.name == "VEVENT":
+                event = CalendarEvent()
+                event.update(component)
+                if event.get("UID"):
+                    self.events.append(event)
+
+    def to_ical(self) -> str:
+        """Build ICS content from calendar."""
+        lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Syncalpy//EN"]
+
+        for event in self.events:
+            lines.append(event.to_ical())
+
+        lines.append("END:VCALENDAR")
+        return "\r\n".join(lines) + "\r\n"
 
     def get_event_by_uid(self, uid: str) -> Optional[CalendarEvent]:
         """Get an event by its UID."""
