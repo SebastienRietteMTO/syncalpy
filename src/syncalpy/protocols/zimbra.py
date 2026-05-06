@@ -45,23 +45,35 @@ class ZimbraProtocol(Calendar):
         except requests.RequestException as e:
             raise RuntimeError(f"Failed to fetch calendar from Zimbra: {e}") from e
 
-    def add_event(self, event: CalendarEvent) -> None:
-        """Add an event to the calendar and push to Zimbra server."""
-        super().add_event(event)
-        ics_content = Calendar([event]).to_ical()
+    def add_event(self, event_or_calendar) -> None:
+        """Add an event or calendar to the calendar and push to Zimbra server."""
+        super().add_event(event_or_calendar)
+
+        if isinstance(event_or_calendar, CalendarEvent):
+            # Single event - use full ICS format
+            ics_content = Calendar([event_or_calendar]).to_ical()
+        elif isinstance(event_or_calendar, Calendar):
+            # Calendar - output events only without VCALENDAR wrapper
+            ics_content = event_or_calendar.to_ical(include_calendar_wrapper=False)
+        else:
+            raise TypeError("add_event expects a CalendarEvent or Calendar instance")
 
         calendar_url = f"{self.url}/home/{self.username}/calendar"
         files = {"file": ("calendar.ics", ics_content, "text/calendar")}
 
-        try:
-            response = self.session.post(
-                calendar_url,
-                files=files,
-                timeout=30,
-            )
-            response.raise_for_status()
-        except requests.RequestException as e:
-            raise RuntimeError(f"Failed to push event to Zimbra: {e}") from e
+        if isinstance(event_or_calendar, CalendarEvent):
+            print('ADD', event_or_calendar.to_ical())
+        else:
+            print('ADD', event_or_calendar.to_ical(include_calendar_wrapper=False))
+        #try:
+        #    response = self.session.post(
+        #        calendar_url,
+        #        files=files,
+        #        timeout=30,
+        #    )
+        #    response.raise_for_status()
+        #except requests.RequestException as e:
+        #    raise RuntimeError(f"Failed to push event to Zimbra: {e}") from e
 
     def remove_event(self, uid: str) -> None:
         """Remove an event from the calendar and delete from Zimbra server."""
@@ -71,15 +83,16 @@ class ZimbraProtocol(Calendar):
         ics_content = self._build_ics_event_for_deletion(uid)
         files = {"file": ("calendar.ics", ics_content, "text/calendar")}
 
-        try:
-            response = self.session.post(
-                calendar_url,
-                files=files,
-                timeout=30,
-            )
-            response.raise_for_status()
-        except requests.RequestException as e:
-            raise RuntimeError(f"Failed to delete event from Zimbra: {e}") from e
+        print('REMOVE', uid)
+        #try:
+        #    response = self.session.post(
+        #        calendar_url,
+        #        files=files,
+        #        timeout=30,
+        #    )
+        #    response.raise_for_status()
+        #except requests.RequestException as e:
+        #    raise RuntimeError(f"Failed to delete event from Zimbra: {e}") from e
 
     def _build_ics_event_for_deletion(self, uid: str) -> str:
         """Build ICS content for event deletion."""

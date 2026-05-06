@@ -56,11 +56,7 @@ def main():
 
         for i, sync in enumerate(syncs, 1):
             print(f"\n=== Synchronization {i}/{len(syncs)} ===")
-            try:
-                sync.run()
-            except (RuntimeError, FileNotFoundError, OSError) as e:
-                print(f"Error: {e}")
-                return 1
+            sync.run()
 
         print("\nAll synchronizations complete.")
         return 0

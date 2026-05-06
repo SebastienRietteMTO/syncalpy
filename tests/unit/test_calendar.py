@@ -17,7 +17,9 @@ class TestCalendar:
         calendar.add_event(event)
 
         assert len(calendar.events) == 1
-        assert calendar.get_event_by_uid("1") == event
+        selected = calendar.select_events_by_uid("1")
+        assert len(selected.events) == 1
+        assert selected.events[0] == event
 
     def test_remove_event(self):
         """Remove event from calendar."""

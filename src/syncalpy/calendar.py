@@ -41,28 +41,48 @@ class Calendar:
                 if event.get("UID"):
                     self.events.append(event)
 
-    def to_ical(self) -> str:
-        """Build ICS content from calendar."""
-        lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Syncalpy//EN"]
+    def to_ical(self, include_calendar_wrapper: bool = True) -> str:
+        """Build ICS content from calendar.
+
+        Args:
+            include_calendar_wrapper: If True, include VCALENDAR wrapper lines.
+                                     If False, only output VEVENT lines.
+        """
+        lines = []
+        if include_calendar_wrapper:
+            lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Syncalpy//EN"]
 
         for event in self.events:
             lines.append(event.to_ical())
 
-        lines.append("END:VCALENDAR")
+        if include_calendar_wrapper:
+            lines.append("END:VCALENDAR")
         return "\r\n".join(lines) + "\r\n"
 
-    def get_event_by_uid(self, uid: str) -> Optional[CalendarEvent]:
-        """Get an event by its UID."""
-        for event in self.events:
-            if event.uid == uid:
-                return event
-        return None
+    def select_events_by_uid(self, uid: str) -> "Calendar":
+        """Return a new Calendar instance with only events with the given UID."""
+        matching_events = [e for e in self.events if e.uid == uid]
+        return Calendar(events=matching_events)
 
-    def add_event(self, event: CalendarEvent) -> None:
-        """Add an event to the calendar."""
-        if self.get_event_by_uid(event.uid):
-            self.remove_event(event.uid)
-        self.events.append(event)
+    def add_event(self, event_or_calendar) -> None:
+        """Add an event or all events from a calendar.
+
+        Args:
+            event_or_calendar: A CalendarEvent or Calendar instance.
+        """
+        if isinstance(event_or_calendar, CalendarEvent):
+            if self.select_events_by_uid(event_or_calendar.uid).events:
+                self.remove_event(event_or_calendar.uid)
+            self.events.append(event_or_calendar)
+        elif isinstance(event_or_calendar, Calendar):
+            # When adding a calendar, first remove all events with UIDs present in the calendar being added
+            uids_in_calendar = set(e.uid for e in event_or_calendar.events)
+            for uid in uids_in_calendar:
+                self.remove_event(uid)
+            # Then extend with all events from the calendar
+            self.events.extend(event_or_calendar.events)
+        else:
+            raise TypeError("add_event expects a CalendarEvent or Calendar instance")
 
     def get_all_uids(self) -> List[str]:
         """Get the UIDs of all events except those hidden."""
@@ -70,9 +90,9 @@ class Calendar:
 
     def remove_event(self, uid: str) -> bool:
         """Remove an event by UID. Returns True if removed."""
-        event = self.get_event_by_uid(uid)
-        if event:
-            self.events.remove(event)
+        new_events = [e for e in self.events if e.uid != uid]
+        if len(new_events) != len(self.events):
+            self.events = new_events
             return True
         return False
 
@@ -101,8 +121,12 @@ class Calendar:
         modified = []
         for self_event in self_visible:
             if self_event.uid in other_uids:
-                other_event = other.get_event_by_uid(self_event.uid)
-                if other_event and not self_event == other_event:
+                other_events_with_uid = other.select_events_by_uid(self_event.uid).events
+                if other_events_with_uid:
+                    # Check if self_event matches any event with the same UID in other
+                    if not any(self_event == other_event for other_event in other_events_with_uid):
+                        modified.append(self_event.uid)
+                else:
                     modified.append(self_event.uid)
 
         changed = list(set(added + modified))
@@ -116,15 +140,23 @@ class Calendar:
         """Check equality between two calendars."""
         if not isinstance(other, Calendar):
             return False
-        self_uids = set(self.get_all_uids())
-        other_uids = set(other.get_all_uids())
-        if self_uids != other_uids:
+
+        if len(self.events) != len(other.events):
             return False
+
+        # Try to match each event in self with an event in other
+        other_unmatched = list(other.events)
         for self_event in self.events:
-            other_event = other.get_event_by_uid(self_event.uid)
-            if other_event and self_event != other_event:
+            found = False
+            for i, other_event in enumerate(other_unmatched):
+                if self_event == other_event:
+                    other_unmatched.pop(i)
+                    found = True
+                    break
+            if not found:
                 return False
-        return True
+
+        return len(other_unmatched) == 0
 
     def finalize(self):
         """Finalize the calendar."""

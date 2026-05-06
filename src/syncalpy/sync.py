@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from .calendar import Calendar
 from .event import CalendarEvent
-from .protocols.jcal import JCalProtocol
+from .protocols.ics_file import ICSFileProtocol
 from .protocols import get_protocol
 
 
@@ -106,9 +106,9 @@ class Synchronization:
         cal2 = self._load_calendar(self.cal2_config, self.cal2_name)
         return cal2.apply_filters(self.cal2_config.get("filters", []))
 
-    def get_state_calendar(self) -> JCalProtocol:
+    def get_state_calendar(self) -> ICSFileProtocol:
         """Get the state calendar for this synchronization."""
-        return JCalProtocol(f"{self._state_dir}/{self.name}.json")
+        return ICSFileProtocol(f"{self._state_dir}/{self.name}.ics")
 
     @staticmethod
     def synchronize(cal1, cal2, ref, sync_mode):
@@ -132,7 +132,7 @@ class Synchronization:
             else:
                 # We deleted from cal1 but there's un update in cal2
                 # We keep the cal2 version everywhere
-                event_in_cal2 = cal2.get_event_by_uid(uid)
+                event_in_cal2 = cal2.select_events_by_uid(uid)
                 cal1.add_event(event_in_cal2)
                 ref.add_event(event_in_cal2)
                 diff_2['changed'] = [u for u in diff_2['changed'] if u != uid]
@@ -143,16 +143,16 @@ class Synchronization:
                 # If not bidirectional, cal2 is a copy
                 # If bidirectional and uid has not changed in cal2, we copy
                 # uid can have been deleted in cal2
-                event_in_cal1 = cal1.get_event_by_uid(uid)
+                event_in_cal1 = cal1.select_events_by_uid(uid)
                 cal2.add_event(event_in_cal1)
                 ref.add_event(event_in_cal1)
                 diff_2['removed'] = [u for u in diff_2['removed'] if u != uid]
             else:
                 # Modified in both versions
                 # There is a conflict, we push both versions in cal1 and cal2
-                e = ref.get_event_by_uid(uid)
-                e1 = cal1.get_event_by_uid(uid)
-                e2 = cal2.get_event_by_uid(uid)
+                e = ref.select_events_by_uid(uid)
+                e1 = cal1.select_events_by_uid(uid)
+                e2 = cal2.select_events_by_uid(uid)
                 for event in Synchronization._conflict(e, e1, e2):
                     cal1.add_event(event)
                     cal2.add_event(event)
@@ -165,38 +165,94 @@ class Synchronization:
                 cal1.remove_event(uid)
                 ref.remove_event(uid)
             for uid in diff_2['changed']:
-                event_in_cal2 = cal2.get_event_by_uid(uid)
+                event_in_cal2 = cal2.select_events_by_uid(uid)
                 cal1.add_event(event_in_cal2)
                 ref.add_event(event_in_cal2)
 
     @staticmethod
-    def _conflict(base, event1, event2):
-        if event1 == event2:
+    def _conflict(base, cal1, cal2):
+
+        if cal1 == cal2:
             # Added or modified on both sides, but the same way
             # We return one to update ref
-            return [event1]
+            return [cal1]
 
-        if base is None:
-            event2.set_uid()
-            event1.conflict()
-            event2.conflict()
-            return [event1, event2]
+        # We must associate events in all calendars
+        def categorize(cal):
+            master_candidates = [event for event in cal.events if 'RRULE' in event]
+            if len(master_candidates) == 0:
+                if len(cal.events) == 1:
+                    master_candidates = [cal.events[0]]
+                else:
+                    raise ValueError("No RRULE event found and multiple events exist")
+            elif len(master_candidates) > 1:
+                raise ValueError("Multiple events with RRULE found")
+            master = master_candidates[0]
+            other = {}
+            for event in [event for event in cal.events if event != master]:
+                key = (event.start, event.end)
+                if key in other:
+                    raise ValueError("Multiple modifications for same occurrence")
+                other[key] = event
+            return master, other
+        masterbase, otherbase = categorize(base)
+        master1, other1 = categorize(cal1)
+        master2, other2 = categorize(cal2)
+        associated=[(masterbase, master1, master2)]
+        for key in set(list(otherbase.keys()) + list(other1.keys()) + list(other2.keys())):
+            associated.append((otherbase.get(key, None),
+                               other1.get(key, None),
+                               other2.get(key, None)))
 
-        all_keys = set(event1.keys()) | set(event2.keys()) | set(base.keys())
-        fields = [k for k in all_keys if k not in CalendarEvent.ignore_keys_eq]
+        # Comparison function
+        def compare(eventbase, event1, event2):
+            if eventbase is None:
+                eventbase = dict()
+            all_keys = set(event1.keys()) | set(event2.keys()) | set(eventbase.keys())
+            fields = [k for k in all_keys if k not in CalendarEvent.ignore_keys_eq]
+            changed1 = [f for f in fields if event1.get(f) != eventbase.get(f)]
+            changed2 = [f for f in fields if event2.get(f) != eventbase.get(f)]
+            return changed1, changed2
 
-        changed1 = [f for f in fields if event1.get(f) != base.get(f)]
-        changed2 = [f for f in fields if event2.get(f) != base.get(f)]
+        # Comparison to detect non-mergeable events
+        mergeable = True
+        for eventbase, event1, event2 in associated:
+            if eventbase is None and event1 != event2:
+                mergeable = False
+            elif event1 == event2:
+                pass
+            elif event1 is not None and event2 is not None:
+                changed1, changed2 = compare(eventbase, event1, event2)
+                if set(changed1) & set(changed2):
+                    mergeable = False
 
-        if not changed1 or not changed2 or set(changed1) & set(changed2):
-            event2.set_uid()
-            event1.conflict()
-            event2.conflict()
-            return [event1, event2]
+        if mergeable:
+            # Merge
+            for eventbase, event1, event2 in associated:
+                if event1 is None:
+                    cal1.add_event(event2)
+                elif event2 is None:
+                    cal2.add_event(event1)
+                elif event1 == event2:
+                    pass
+                else:
+                    changed1, changed2 = compare(eventbase, event1, event2)
+                    for field in changed2:
+                        event1[field] = event2.get(field)
+            return [cal1]
 
-        for field in changed2:
-            event1[field] = event2.get(field)
-        return [event1]
+        # Duplicate
+        uid = None
+        for event in cal2.events:
+            if uid is None:
+                event.set_uid()
+                uid = event.uid
+            else:
+                event.set_uid(uid)
+            event.conflict()
+        for event in cal1.events:
+            event.conflict()
+        return [cal1, cal2]
 
     def run(self) -> None:
         """Run the synchronization."""

@@ -69,7 +69,7 @@ class TestSyncConflictResolution:
 
         assert len(updated1.events) == 1
         assert len(updated2.events) == 1
-        assert updated2.get_event_by_uid("1") is not None
+        assert len(updated2.select_events_by_uid("1").events) == 1
         assert updated1 == updated2
 
     def test_add_event_to_cal2(self):
@@ -91,7 +91,7 @@ class TestSyncConflictResolution:
 
         assert len(updated1.events) == 1
         assert len(updated2.events) == 1
-        assert updated1.get_event_by_uid("1") is not None
+        assert len(updated1.select_events_by_uid("1").events) == 1
         assert updated1 == updated2
 
     def test_delete_event_from_cal1(self):
@@ -199,8 +199,8 @@ class TestSyncConflictResolution:
             prev_cal, curr_cal1, curr_cal2
         )
 
-        assert updated1.get_event_by_uid("1") is not None
-        assert updated2.get_event_by_uid("1") is not None
+        assert len(updated1.select_events_by_uid("1").events) == 1
+        assert len(updated2.select_events_by_uid("1").events) == 1
         assert len(updated1.events) == 2
         assert len(updated2.events) == 2
         assert updated1 == updated2
@@ -228,8 +228,8 @@ class TestSyncConflictResolution:
             prev_cal, curr_cal1, curr_cal2
         )
 
-        assert updated1.get_event_by_uid("1") is not None
-        assert updated2.get_event_by_uid("1") is not None
+        assert len(updated1.select_events_by_uid("1").events) == 1
+        assert len(updated2.select_events_by_uid("1").events) == 1
         assert len(updated1.events) == 2
         assert len(updated2.events) == 2
         assert updated1 == updated2
@@ -255,7 +255,7 @@ class TestSyncConflictResolution:
             prev_cal, curr_cal1, curr_cal2
         )
 
-        assert updated1.get_event_by_uid("1") is not None
+        assert len(updated1.select_events_by_uid("1").events) == 1
         assert len(updated1.events) == 2
         assert len(updated2.events) == 2
         assert updated1 == updated2
@@ -410,7 +410,7 @@ class TestSyncWithFilters:
             filters1=[{"name": "future_only"}]
         )
 
-        assert updated2.get_event_by_uid("2") is not None
+        assert len(updated2.select_events_by_uid("2").events) == 1
         assert len(updated2.events) == 1
 
     def test_sync_with_regexp_filter(self):
@@ -441,7 +441,7 @@ class TestSyncWithFilters:
         )
 
         assert len(updated2.events) == 1
-        assert updated2.get_event_by_uid("1") is not None
+        assert len(updated2.select_events_by_uid("1").events) == 1
  
 
 class TestEdgeCases:
